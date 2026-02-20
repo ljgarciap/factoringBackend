@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\HistoryExport;
 
 class HistoryController extends Controller
 {
@@ -84,7 +86,6 @@ class HistoryController extends Controller
             case 'opf': $modelClass = \App\Models\OperacionConfirming::class; break;
             default: abort(400);
         }
-
         $query = $modelClass::query();
         if (!empty($search)) {
             $table = (new $modelClass)->getTable();
@@ -95,29 +96,8 @@ class HistoryController extends Controller
                 }
             });
         }
-
         $records = $query->get();
-        $filename = "export_{$categoria}_" . date('Ymd_His') . ".csv";
-        
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
-
-        $callback = function() use ($records) {
-            $file = fopen('php://output', 'w');
-            if ($records->count() > 0) {
-                fputcsv($file, array_keys($records[0]->getAttributes()));
-                foreach ($records as $row) {
-                    fputcsv($file, array_values($row->getAttributes()));
-                }
-            }
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        $filename = "export_{$categoria}_" . date('Ymd_His') . ".xlsx";
+        return Excel::download(new HistoryExport($records), $filename);
     }
 }

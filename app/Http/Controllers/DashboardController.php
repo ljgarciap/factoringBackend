@@ -114,14 +114,82 @@ class DashboardController extends Controller
         // 2. FACTORING STATS (OP & PAGOS)
         $factoringOpQuery = $applyFilters(\App\Models\OperacionFactoring::query(), 'created_at');
         $factoringOpCount = (clone $factoringOpQuery)->count();
-        $totalExposure = (clone $factoringOpQuery)->sum('monto');
+        $totalFinanced = (clone $factoringOpQuery)->sum('monto');
+        $totalDisbursed = (clone $factoringOpQuery)->sum('valor_desembolsado');
+        $totalReserva = (clone $factoringOpQuery)->sum('valor_reserva');
         $avgTasaFactoring = (clone $factoringOpQuery)->avg('tasa_descuento');
         
+        // Exposición por Pagador
+        $exposureByPayer = (clone $factoringOpQuery)
+            ->select('pagador', \Illuminate\Support\Facades\DB::raw('SUM(monto) as total'))
+            ->groupBy('pagador')
+            ->orderBy('total', 'desc')
+            ->limit(10)
+            ->get();
+
+        // Vencimientos Factoring
+        $vencimientos = (clone $factoringOpQuery)
+            ->select('pagador', 'fecha_vencimiento', 'monto')
+            ->orderBy('fecha_vencimiento', 'asc')
+            ->whereNotNull('fecha_vencimiento')
+            ->limit(10)
+            ->get()
+            ->map(function($v) {
+                $today = now();
+                $venc = \Illuminate\Support\Carbon::parse($v->fecha_vencimiento);
+                $diff = $today->diffInDays($venc, false);
+                
+                return [
+                    'pagador' => $v->pagador,
+                    'fecha' => $v->fecha_vencimiento,
+                    'monto' => $v->monto,
+                    'dias' => (int)$diff,
+                    'estado' => $diff < 0 ? 'Vencido' : ($diff <= 15 ? 'Por Vencer' : 'Vigente')
+                ];
+            });
+
         $pagosQuery = $applyFilters(\App\Models\PagoFactoring::query(), 'created_at');
         $pagosCount = (clone $pagosQuery)->count();
         $totalCollected = (clone $pagosQuery)->sum('monto_pagado');
+        $efficiencyScore = (clone $pagosQuery)->avg('dias_cartera');
+        $earlyPaymentCost = (clone $pagosQuery)->sum('descuento_financiero');
+        $outstandingBalance = (clone $pagosQuery)->sum('saldo_restante');
         
-        // Daily Payments Breakdown (Capital vs Intereses)
+        // Monto Pagado a lo largo del tiempo (Timeline)
+        $paymentTimeline = (clone $pagosQuery)
+            ->selectRaw("
+                CASE 
+                    WHEN fecha_pago LIKE '%/%' THEN DATE(STR_TO_DATE(fecha_pago, '%d/%m/%Y'))
+                    ELSE DATE(COALESCE(fecha_pago, created_at))
+                END as fecha, 
+                SUM(monto_pagado) as total
+            ")
+            ->groupBy(\Illuminate\Support\Facades\DB::raw("
+                CASE 
+                    WHEN fecha_pago LIKE '%/%' THEN DATE(STR_TO_DATE(fecha_pago, '%d/%m/%Y'))
+                    ELSE DATE(COALESCE(fecha_pago, created_at))
+                END
+            "))
+            ->orderBy('fecha', 'asc')
+            ->limit(30)
+            ->get();
+
+        // Distribución de Pagos por Cliente
+        $paymentDistribution = (clone $pagosQuery)
+            ->select('cliente', \Illuminate\Support\Facades\DB::raw('SUM(monto_pagado) as total'))
+            ->groupBy('cliente')
+            ->orderBy('total', 'desc')
+            ->limit(10)
+            ->get();
+
+        // Registro de Pagos (Table)
+        $paymentEntries = (clone $pagosQuery)
+            ->select('cliente', 'factura_nro', 'dias_cartera', 'monto_pagado')
+            ->orderBy('created_at', 'desc')
+            ->limit(15)
+            ->get();
+
+        // Daily Payments Breakdown (Table from previous task, keeping it for history)
         $dailyPayments = (clone $pagosQuery)
             ->selectRaw("
                 CASE 
@@ -147,7 +215,60 @@ class DashboardController extends Controller
         $confirmingQuery = $applyFilters(\App\Models\OperacionConfirming::query(), 'created_at');
         $confirmingCount = (clone $confirmingQuery)->count();
         $totalConfirmingVal = (clone $confirmingQuery)->sum('valor_nominal');
+        $totalRendimientos = (clone $confirmingQuery)->sum('rendimientos_proyectados');
+        $totalPagarDeudores = (clone $confirmingQuery)->sum('valor_pagar_deudor');
         $avgTasaConfirming = (clone $confirmingQuery)->avg('tasa_factor');
+
+        // Análisis de Emisores (Pie Chart based on Valor Nominal)
+        $analysisEmitters = (clone $confirmingQuery)
+            ->select('emisor', \Illuminate\Support\Facades\DB::raw('SUM(valor_nominal) as total'))
+            ->groupBy('emisor')
+            ->orderBy('total', 'desc')
+            ->get();
+
+        // Tabla de Vencimientos y Días
+        $vencimientosConfirming = (clone $confirmingQuery)
+            ->select('id_titulo', 'emisor', 'fecha_final', 'dias')
+            ->orderBy('fecha_final', 'asc')
+            ->limit(15)
+            ->get()
+            ->map(function($v) {
+                // Parse "dd/mm/yyyy" to standard format if needed
+                $fecha = $v->fecha_final;
+                if (strpos($fecha, '/') !== false) {
+                    try {
+                        $fecha = \Illuminate\Support\Carbon::createFromFormat('d/m/Y', $fecha)->format('Y-m-d');
+                    } catch (\Exception $e) {}
+                }
+                return [
+                    'id_titulo' => $v->id_titulo,
+                    'emisor' => $v->emisor,
+                    'fecha_final' => $fecha,
+                    'dias' => $v->dias
+                ];
+            });
+
+        // Gráfico de Barras de Tasa Media (by Emisor)
+        $avgTasaByEmisor = (clone $confirmingQuery)
+            ->select('emisor', \Illuminate\Support\Facades\DB::raw('AVG(tasa_factor) as avg_tasa'))
+            ->groupBy('emisor')
+            ->orderBy('avg_tasa', 'desc')
+            ->get();
+
+        // Rendimientos por Emisor
+        $rendimientosByEmisor = (clone $confirmingQuery)
+            ->select('emisor')
+            ->selectRaw('SUM(valor_nominal) as total_nominal')
+            ->selectRaw('SUM(rendimientos_proyectados) as total_rendimientos')
+            ->groupBy('emisor')
+            ->get()
+            ->map(function($r) {
+                return [
+                    'emisor' => $r->emisor,
+                    'valor_nominal' => (float)$r->total_nominal,
+                    'rendimientos' => (float)$r->total_rendimientos
+                ];
+            });
 
         return response()->json([
             'cartera' => [
@@ -166,16 +287,32 @@ class DashboardController extends Controller
             ],
             'factoring' => [
                 'op_count' => $factoringOpCount,
-                'exposure' => (float)$totalExposure,
+                'volumen_total' => (float)$totalFinanced,
+                'valor_desembolsado' => (float)$totalDisbursed,
+                'valor_reserva' => (float)$totalReserva,
                 'avg_tasa' => round($avgTasaFactoring, 2),
                 'pagos_count' => $pagosCount,
                 'total_collected' => (float)$totalCollected,
-                'daily_payments' => $dailyPayments
+                'efficiency_score' => round($efficiencyScore, 1),
+                'early_payment_cost' => (float)$earlyPaymentCost,
+                'outstanding_balance' => (float)$outstandingBalance,
+                'daily_payments' => $dailyPayments,
+                'payment_timeline' => $paymentTimeline,
+                'payment_distribution' => $paymentDistribution,
+                'payment_entries' => $paymentEntries,
+                'exposure_by_payer' => $exposureByPayer,
+                'vencimientos' => $vencimientos
             ],
             'confirming' => [
                 'count' => $confirmingCount,
                 'total_val' => (float)$totalConfirmingVal,
-                'avg_tasa' => round($avgTasaConfirming, 2)
+                'rendimientos_proyectados' => (float)$totalRendimientos,
+                'total_pagar_deudores' => (float)$totalPagarDeudores,
+                'avg_tasa' => round($avgTasaConfirming, 2),
+                'analisis_emisores' => $analysisEmitters,
+                'vencimientos' => $vencimientosConfirming,
+                'tasa_media_emisor' => $avgTasaByEmisor,
+                'rendimientos_emisor' => $rendimientosByEmisor
             ],
         ]);
     }
