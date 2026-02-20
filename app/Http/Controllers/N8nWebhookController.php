@@ -35,7 +35,12 @@ class N8nWebhookController extends Controller
             switch ($categoria) {
                 case 'cartera':
                     foreach ($data as $row) {
-                        OperacionCartera::create($row);
+                        if (isset($row['actividad_economica'])) {
+                            $row['sector_economico'] = \App\Services\IntelligentMapper::mapActivityToSector($row['actividad_economica']);
+                        }
+                        // Remove only non-existent columns to avoid DB errors
+                        $cleanedRow = collect($row)->except(['operacion', 'saldo_total'])->toArray();
+                        OperacionCartera::create($cleanedRow);
                     }
                     break;
                 case 'op':

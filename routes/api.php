@@ -11,4 +11,7 @@ Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookControl
     ->middleware(\App\Http\Middleware\VerifyN8nToken::class);
 Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats']);
 Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index']);
+Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord']);
+Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export']);
+Route::get('/sectores', \App\Http\Controllers\SectorController::class);
 Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index']);
