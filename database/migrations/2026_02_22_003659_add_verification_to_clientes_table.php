@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('operacion_carteras', function (Blueprint $table) {
-            $table->string('tipo_garantia')->nullable()->after('plan_amortizacion');
-            $table->string('estado_garantia')->nullable()->after('tipo_garantia');
+        Schema::table('clientes', function (Blueprint $table) {
+            $table->boolean('is_verified')->default(false)->after('identificacion');
+            $table->string('verification_method')->nullable()->after('is_verified');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('operacion_carteras', function (Blueprint $table) {
+        Schema::table('clientes', function (Blueprint $table) {
             //
         });
     }

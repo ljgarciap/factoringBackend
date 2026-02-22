@@ -56,18 +56,32 @@ class DashboardController extends Controller
         
         // Ranked Clients (Saldos Actuales Operación)
         $clientRanking = (clone $carteraQuery)
-            ->select('cliente', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total_ops'), \Illuminate\Support\Facades\DB::raw('SUM(saldo_capital) as saldo_total'))
-            ->groupBy('cliente')
+            ->select('cliente', 'identificacion', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total_ops'), \Illuminate\Support\Facades\DB::raw('SUM(saldo_capital) as saldo_total'))
+            ->groupBy('cliente', 'identificacion')
             ->orderBy('saldo_total', 'desc')
             ->limit(10)
             ->get();
 
-        // Debtors in Mora
+        // Debtors in Mora (Aggregated per Client)
         $currentDebtors = (clone $carteraQuery)->where('valor_mora', '>', 0)
-            ->select('cliente', 'identificacion', 'valor_mora', 'dias_vencido')
+            ->select('cliente', 'identificacion')
+            ->selectRaw('SUM(valor_mora) as valor_mora')
+            ->selectRaw('MAX(dias_vencido) as dias_vencido')
+            ->groupBy('cliente', 'identificacion')
             ->orderBy('valor_mora', 'desc')
             ->limit(10)
-            ->get();
+            ->get()
+            ->map(function($debtor) use ($carteraQuery, $fechaInicio, $fechaFin) {
+                // Fetch individual operations for this debtor that are in mora
+                $debtor->detalles = (clone $carteraQuery)
+                    ->where('identificacion', $debtor->identificacion)
+                    ->where('valor_mora', '>', 0)
+                    ->select('numero_radicado as operacion', 'valor_mora', 'dias_vencido')
+                    ->get();
+
+                return $debtor;
+            });
+
 
         // City Distribution
         // Daily Disbursements Breakdown (Reporte de Desembolsos)
@@ -79,6 +93,7 @@ class DashboardController extends Controller
                     ELSE DATE(COALESCE(fecha_desembolso, created_at))
                 END as fecha, 
                 cliente, 
+                identificacion,
                 SUM(valor_desembolso) as total
             ")
             ->groupBy(\Illuminate\Support\Facades\DB::raw("
@@ -86,7 +101,7 @@ class DashboardController extends Controller
                     WHEN fecha_desembolso LIKE '%/%' THEN DATE(STR_TO_DATE(fecha_desembolso, '%d/%m/%Y'))
                     ELSE DATE(COALESCE(fecha_desembolso, created_at))
                 END
-            "), 'cliente')
+            "), 'cliente', 'identificacion')
             ->orderBy('fecha', 'desc')
             ->get();
 
@@ -129,7 +144,7 @@ class DashboardController extends Controller
 
         // Vencimientos Factoring
         $vencimientos = (clone $factoringOpQuery)
-            ->select('pagador', 'fecha_vencimiento', 'monto')
+            ->select('pagador', 'nit_pagador as identificacion', 'fecha_vencimiento', 'monto')
             ->orderBy('fecha_vencimiento', 'asc')
             ->whereNotNull('fecha_vencimiento')
             ->limit(10)
@@ -184,9 +199,8 @@ class DashboardController extends Controller
 
         // Registro de Pagos (Table)
         $paymentEntries = (clone $pagosQuery)
-            ->select('cliente', 'factura_nro', 'dias_cartera', 'monto_pagado')
+            ->select('cliente', 'nit as identificacion', 'factura_nro', 'dias_cartera', 'monto_pagado')
             ->orderBy('created_at', 'desc')
-            ->limit(15)
             ->get();
 
         // Daily Payments Breakdown (Table from previous task, keeping it for history)
@@ -197,6 +211,7 @@ class DashboardController extends Controller
                     ELSE DATE(COALESCE(fecha_pago, created_at))
                 END as fecha, 
                 cliente, 
+                nit as identificacion,
                 SUM(valor_nominal) as capital, 
                 SUM(descuento_financiero) as intereses, 
                 SUM(monto_pagado) as total
@@ -206,7 +221,7 @@ class DashboardController extends Controller
                     WHEN fecha_pago LIKE '%/%' THEN DATE(STR_TO_DATE(fecha_pago, '%d/%m/%Y'))
                     ELSE DATE(COALESCE(fecha_pago, created_at))
                 END
-            "), 'cliente')
+            "), 'cliente', 'nit')
             ->orderBy('fecha', 'desc')
             ->limit(30)
             ->get();
@@ -221,14 +236,14 @@ class DashboardController extends Controller
 
         // Análisis de Emisores (Pie Chart based on Valor Nominal)
         $analysisEmitters = (clone $confirmingQuery)
-            ->select('emisor', \Illuminate\Support\Facades\DB::raw('SUM(valor_nominal) as total'))
-            ->groupBy('emisor')
+            ->select('emisor', 'emisor_nit as identificacion', \Illuminate\Support\Facades\DB::raw('SUM(valor_nominal) as total'))
+            ->groupBy('emisor', 'emisor_nit')
             ->orderBy('total', 'desc')
             ->get();
 
         // Tabla de Vencimientos y Días
         $vencimientosConfirming = (clone $confirmingQuery)
-            ->select('id_titulo', 'emisor', 'fecha_final', 'dias')
+            ->select('id_titulo', 'emisor', 'emisor_nit as identificacion', 'fecha_final', 'dias')
             ->orderBy('fecha_final', 'asc')
             ->limit(15)
             ->get()
@@ -257,10 +272,10 @@ class DashboardController extends Controller
 
         // Rendimientos por Emisor
         $rendimientosByEmisor = (clone $confirmingQuery)
-            ->select('emisor')
+            ->select('emisor', 'emisor_nit as identificacion')
             ->selectRaw('SUM(valor_nominal) as total_nominal')
             ->selectRaw('SUM(rendimientos_proyectados) as total_rendimientos')
-            ->groupBy('emisor')
+            ->groupBy('emisor', 'emisor_nit')
             ->get()
             ->map(function($r) {
                 return [
@@ -272,6 +287,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'cartera' => [
+
                 'count' => $totalCarteraCount,
                 'unique_clients' => $uniqueClients,
                 'movs_per_client' => $movsPerClient,
@@ -290,10 +306,10 @@ class DashboardController extends Controller
                 'volumen_total' => (float)$totalFinanced,
                 'valor_desembolsado' => (float)$totalDisbursed,
                 'valor_reserva' => (float)$totalReserva,
-                'avg_tasa' => round($avgTasaFactoring, 2),
+                'avg_tasa' => $avgTasaFactoring ? round($avgTasaFactoring, 2) : 0,
                 'pagos_count' => $pagosCount,
                 'total_collected' => (float)$totalCollected,
-                'efficiency_score' => round($efficiencyScore, 1),
+                'efficiency_score' => $efficiencyScore ? round($efficiencyScore, 1) : 0,
                 'early_payment_cost' => (float)$earlyPaymentCost,
                 'outstanding_balance' => (float)$outstandingBalance,
                 'daily_payments' => $dailyPayments,
@@ -308,7 +324,7 @@ class DashboardController extends Controller
                 'total_val' => (float)$totalConfirmingVal,
                 'rendimientos_proyectados' => (float)$totalRendimientos,
                 'total_pagar_deudores' => (float)$totalPagarDeudores,
-                'avg_tasa' => round($avgTasaConfirming, 2),
+                'avg_tasa' => $avgTasaConfirming ? round($avgTasaConfirming, 2) : 0,
                 'analisis_emisores' => $analysisEmitters,
                 'vencimientos' => $vencimientosConfirming,
                 'tasa_media_emisor' => $avgTasaByEmisor,
