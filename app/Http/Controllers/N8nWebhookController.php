@@ -11,6 +11,28 @@ use App\Models\SystemLog;
 
 class N8nWebhookController extends Controller
 {
+    /**
+     * @OA\Post(
+     *     path="/api/webhook/n8n/{categoria}",
+     *     summary="Recibir datos procesados desde n8n",
+     *     description="Endpoint para insertar o actualizar registros masivos procesados por n8n.",
+     *     tags={"Webhook"},
+     *     @OA\Parameter(
+     *         name="categoria",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="string", enum={"cartera", "op", "pagos", "opf"})
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="filename", type="string"),
+     *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Procesado con éxito")
+     * )
+     */
     public function handle(Request $request, $categoria)
     {
         $data = $request->input('data', []);

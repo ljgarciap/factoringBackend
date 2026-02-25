@@ -7,7 +7,12 @@ use Illuminate\Http\Request;
 class SectorController extends Controller
 {
     /**
-     * Handle the incoming request.
+     * @OA\Get(
+     *     path="/api/sectores",
+     *     summary="Listar todos los sectores económicos para mapeo",
+     *     tags={"Metadata"},
+     *     @OA\Response(response=200, description="Lista de sectores")
+     * )
      */
     public function __invoke(Request $request)
     {

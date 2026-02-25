@@ -8,6 +8,28 @@ use App\Exports\HistoryExport;
 
 class HistoryController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/history/{categoria}",
+     *     summary="Listar registros históricos por categoría",
+     *     tags={"Historia"},
+     *     @OA\Parameter(
+     *         name="categoria",
+     *         in="path",
+     *         required=true,
+     *         description="Categoría (cartera, op, pagos, opf)",
+     *         @OA\Schema(type="string", enum={"cartera", "op", "pagos", "opf"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         description="Búsqueda global en todas las columnas",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(response=200, description="Lista paginada")
+     * )
+     */
     public function index(Request $request, $categoria)
     {
         $search = $request->query('search');
@@ -48,6 +70,34 @@ class HistoryController extends Controller
 
         return response()->json($query->orderBy($sortBy, $sortDir)->paginate($perPage));
     }
+    /**
+     * @OA\Patch(
+     *     path="/api/history/{categoria}/{id}",
+     *     summary="Actualizar campos editables de un registro",
+     *     tags={"Historia"},
+     *     @OA\Parameter(
+     *         name="categoria",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="observaciones", type="string"),
+     *             @OA\Property(property="sector_economico", type="string"),
+     *             @OA\Property(property="ciudad", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Registro actualizado")
+     * )
+     */
     public function updateRecord(Request $request, $categoria, $id)
     {
         $modelClass = null;
@@ -75,6 +125,26 @@ class HistoryController extends Controller
         return response()->json(['message' => 'Registro actualizado', 'data' => $record]);
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/history/{categoria}/export",
+     *     summary="Exportar registros a Excel",
+     *     tags={"Historia"},
+     *     @OA\Parameter(
+     *         name="categoria",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(response=200, description="Archivo Excel")
+     * )
+     */
     public function export(Request $request, $categoria)
     {
         $search = $request->query('search');

@@ -6,6 +6,39 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/dashboard/stats",
+     *     summary="Obtener estadísticas globales del dashboard",
+     *     description="Retorna métricas de Cartera, Factoring y Confirming con filtros opcionales.",
+     *     tags={"Dashboard"},
+     *     @OA\Parameter(
+     *         name="fecha_inicio",
+     *         in="query",
+     *         description="Fecha de inicio (YYYY-MM-DD)",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="fecha_fin",
+     *         in="query",
+     *         description="Fecha de fin (YYYY-MM-DD)",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="cliente",
+     *         in="query",
+     *         description="Nombre o identificación del cliente/emisor",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Operación exitosa"
+     *     )
+     * )
+     */
     public function stats(Request $request)
     {
         $fechaInicio = $request->query('fecha_inicio');

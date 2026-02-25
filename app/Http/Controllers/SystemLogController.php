@@ -6,6 +6,21 @@ use Illuminate\Http\Request;
 
 class SystemLogController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/logs",
+     *     summary="Listar logs de auditoría del sistema",
+     *     tags={"Logs"},
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         required=false,
+     *         description="Búsqueda en logs",
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(response=200, description="Lista paginada de logs")
+     * )
+     */
     public function index(Request $request)
     {
         $search = $request->query('search');
