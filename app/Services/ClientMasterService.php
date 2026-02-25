@@ -17,48 +17,49 @@ class ClientMasterService
             return $identificacion;
         }
 
-        // 1. Clean identification (numeric only)
+        // 1. Normalize data
+        $nombre = trim($nombre);
         $nitBase = preg_replace('/[^0-9]/', '', $identificacion);
         
-        // 2. Look up by name (Single Source of Truth by Name)
-        $clientByName = Cliente::where('nombre', $nombre)->first();
-        
-        if ($clientByName) {
-            // THE NAME IS ALREADY IN OUR MASTER LIST. 
-            // We ignore whatever the AI read and use the Master NIT.
-            if ($clientByName->identificacion !== $nitBase) {
+        // 2. SEARCH BY NIT FIRST (Unique Identifier)
+        // This avoids 1062 Duplicate Entry errors
+        $clientByNit = Cliente::where('identificacion', $nitBase)->first();
+        if ($clientByNit) {
+            // If the name is different, we log it but proceed with the Master NIT
+            if (strcasecmp($clientByNit->nombre, $nombre) !== 0) {
                 SystemLog::create([
                     'categoria' => 'validation',
-                    'action' => 'Consensus Override',
-                    'message' => "Client '{$nombre}' exists with NIT '{$clientByName->identificacion}'. Batch provided '{$nitBase}'. Using Master NIT.",
+                    'action' => 'Name Variation',
+                    'message' => "Client with NIT '{$nitBase}' known as '{$clientByNit->nombre}' received variant '{$nombre}'. Using Master record.",
                     'records_processed' => 0
                 ]);
             }
+            return $clientByNit->identificacion;
+        }
+
+        // 3. Search by name (Fallback)
+        $clientByName = Cliente::where('nombre', $nombre)->first();
+        if ($clientByName) {
             return $clientByName->identificacion;
         }
 
-        // 3. New name - Does the NIT already belong to someone else?
-        $clientById = Cliente::where('identificacion', $nitBase)->first();
-        if ($clientById) {
-             SystemLog::create([
-                'categoria' => 'validation',
-                'action' => 'NIT Clash',
-                'message' => "NIT '{$nitBase}' is already assigned to '{$clientById->nombre}'. Blocked creation for '{$nombre}'.",
-                'records_processed' => 0
-            ]);
-            throw new \Exception("Conflicto de Identificación: El NIT {$nitBase} ya pertenece a '{$clientById->nombre}'.");
-        }
-
         // 4. Completely new client
-        Cliente::create([
-            'nombre' => $nombre,
-            'identificacion' => $nitBase,
-            'ciudad' => $extraData['ciudad'] ?? null,
-            'sector_economico' => $extraData['sector_economico'] ?? null,
-            'actividad_economica' => $extraData['actividad_economica'] ?? null,
-            'is_verified' => true, // Consensus-based creation is considered verified
-            'verification_method' => 'consensus'
-        ]);
+        try {
+            Cliente::create([
+                'nombre' => $nombre,
+                'identificacion' => $nitBase,
+                'ciudad' => $extraData['ciudad'] ?? null,
+                'sector_economico' => $extraData['sector_economico'] ?? null,
+                'actividad_economica' => $extraData['actividad_economica'] ?? null,
+                'is_verified' => true,
+                'verification_method' => 'consensus'
+            ]);
+        } catch (\Exception $e) {
+            // Final fallback: if creation fails due to race condition or hidden constraint
+            $retry = Cliente::where('identificacion', $nitBase)->first();
+            if ($retry) return $retry->identificacion;
+            throw $e;
+        }
 
         return $nitBase;
     }
