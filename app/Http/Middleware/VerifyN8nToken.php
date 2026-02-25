@@ -16,7 +16,7 @@ class VerifyN8nToken
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->bearerToken();
-        $expectedToken = env('N8N_API_TOKEN');
+        $expectedToken = config('services.n8n.token');
 
         if (!$token || $token !== $expectedToken) {
             return response()->json(['message' => 'Unauthorized or invalid token'], 401);

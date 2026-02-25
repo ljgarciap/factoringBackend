@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'n8n' => [
+        'token' => env('N8N_API_TOKEN'),
+    ],
+
 ];
