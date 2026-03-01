@@ -33,6 +33,7 @@ class N8nWebhookController extends Controller
      *     @OA\Response(response=200, description="Procesado con éxito")
      * )
      */
+    
     public function handle(Request $request, $categoria)
     {
         $data = $request->input('data', []);
@@ -43,6 +44,37 @@ class N8nWebhookController extends Controller
             $data = [$data];
         }
 
+        try {
+            $this->processData($data, $categoria, $filename);
+
+            SystemLog::create([
+                'categoria' => $categoria,
+                'filename' => $filename,
+                'action' => 'Webhook Recibido',
+                'message' => 'Lote de datos procesado con éxito.',
+                'records_processed' => count($data),
+                'payload' => json_encode($data)
+            ]);
+
+            return response()->json(['message' => 'Datos procesados correctamente']);
+            
+        } catch (\Exception $e) {
+            SystemLog::create([
+                'categoria' => $categoria,
+                'filename' => $filename,
+                'action' => 'Error en Webhook',
+                'message' => 'Fallo al procesar: ' . $e->getMessage(),
+                'records_processed' => 0,
+                'payload' => json_encode($data),
+                'error_details' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json(['message' => 'Error procesando datos', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function processData(array $data, string $categoria, ?string $filename = null)
+    {
         // 1. Normalize Keys to Match Database Columns (Snake Case) FIRST
         $data = $this->mapKeysToDatabase($data, $categoria);
 
@@ -59,77 +91,56 @@ class N8nWebhookController extends Controller
         // 3. Apply Batch Consensus for Identifiers (Nombre -> NIT)
         $data = $this->applyConsensus($data, $categoria);
 
-        try {
-            switch ($categoria) {
-                case 'cartera':
-                    foreach ($data as $row) {
-                        if (isset($row['actividad_economica'])) {
-                            $row['sector_economico'] = \App\Services\IntelligentMapper::mapActivityToSector($row['actividad_economica']);
-                        }
-                        
-                        // Master client data
-                        if (isset($row['cliente']) && isset($row['identificacion'])) {
-                            $row['identificacion'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['identificacion'], [
-                                'ciudad' => $row['ciudad'] ?? null,
-                                'sector_economico' => $row['sector_economico'] ?? null,
-                                'actividad_economica' => $row['actividad_economica'] ?? null,
-                            ]);
-                        }
+        switch ($categoria) {
+            case 'cartera':
+                foreach ($data as $row) {
+                    if (isset($row['actividad_economica'])) {
+                        $row['sector_economico'] = \App\Services\IntelligentMapper::mapActivityToSector($row['actividad_economica']);
+                    }
+                    
+                    // Master client data
+                    if (isset($row['cliente']) && isset($row['identificacion'])) {
+                        $row['identificacion'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['identificacion'], [
+                            'ciudad' => $row['ciudad'] ?? null,
+                            'sector_economico' => $row['sector_economico'] ?? null,
+                            'actividad_economica' => $row['actividad_economica'] ?? null,
+                        ]);
+                    }
 
-                        // Remove only non-existent columns to avoid DB errors
-                        $cleanedRow = collect($row)->except(['operacion', 'saldo_total'])->toArray();
-                        OperacionCartera::create($cleanedRow);
+                    // Remove only non-existent columns to avoid DB errors
+                    $cleanedRow = collect($row)->except(['operacion', 'saldo_total'])->toArray();
+                    OperacionCartera::create($cleanedRow);
+                }
+                break;
+            case 'op':
+                foreach ($data as $row) {
+                    if (isset($row['cliente']) && isset($row['nit_cliente'])) {
+                        $row['nit_cliente'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit_cliente']);
                     }
-                    break;
-                case 'op':
-                    foreach ($data as $row) {
-                        if (isset($row['cliente']) && isset($row['nit_cliente'])) {
-                            $row['nit_cliente'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit_cliente']);
-                        }
-                        OperacionFactoring::create($row);
+                    OperacionFactoring::create($row);
+                }
+                break;
+            case 'pagos':
+                foreach ($data as $row) {
+                    if (isset($row['cliente']) && isset($row['nit'])) {
+                        $row['nit'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit']);
                     }
-                    break;
-                case 'pagos':
-                    foreach ($data as $row) {
-                        if (isset($row['cliente']) && isset($row['nit'])) {
-                            $row['nit'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit']);
-                        }
-                        PagoFactoring::create($row);
+                    PagoFactoring::create($row);
+                }
+                break;
+            case 'opf':
+                foreach ($data as $row) {
+                    if (isset($row['emisor']) && isset($row['emisor_nit'])) {
+                        $row['emisor_nit'] = \App\Services\ClientMasterService::masterClient($row['emisor'], $row['emisor_nit']);
                     }
-                    break;
-                case 'opf':
-                    foreach ($data as $row) {
-                        if (isset($row['emisor']) && isset($row['emisor_nit'])) {
-                            $row['emisor_nit'] = \App\Services\ClientMasterService::masterClient($row['emisor'], $row['emisor_nit']);
-                        }
-                        OperacionConfirming::create($row);
-                    }
-                    break;
-                default:
-                    return response()->json(['message' => 'Categoría no válida'], 400);
-            }
-
-            SystemLog::create([
-                'categoria' => $categoria,
-                'filename' => $filename,
-                'action' => 'Webhook Recibido',
-                'message' => 'Lote de datos procesado con éxito.',
-                'records_processed' => count($data)
-            ]);
-
-            return response()->json(['message' => 'Datos procesados correctamente']);
-            
-        } catch (\Exception $e) {
-            SystemLog::create([
-                'categoria' => $categoria,
-                'filename' => $filename,
-                'action' => 'Error en Webhook',
-                'message' => 'Fallo al procesar: ' . $e->getMessage(),
-                'records_processed' => 0
-            ]);
-            
-            return response()->json(['message' => 'Error procesando datos', 'error' => $e->getMessage()], 500);
+                    OperacionConfirming::create($row);
+                }
+                break;
+            default:
+                throw new \Exception('Categoría no válida');
         }
+    }
+
     }
 
     /**

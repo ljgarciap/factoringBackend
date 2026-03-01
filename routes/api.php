@@ -15,3 +15,4 @@ Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryControll
 Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export']);
 Route::get('/sectores', \App\Http\Controllers\SectorController::class);
 Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index']);
+Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry']);
