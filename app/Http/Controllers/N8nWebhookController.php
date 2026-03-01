@@ -43,6 +43,15 @@ class N8nWebhookController extends Controller
         if (!is_array(reset($data)) && count($data) > 0) {
             $data = [$data];
         }
+        // Extraer filename del array si no vino en el request/query
+        if (empty($filename) && is_array($data)) {
+            foreach ($data as $row) {
+                if (isset($row['filename']) || isset($row['NombreArchivo'])) {
+                    $filename = $row['filename'] ?? $row['NombreArchivo'];
+                    break;
+                }
+            }
+        }
 
         try {
             $this->processData($data, $categoria, $filename);
