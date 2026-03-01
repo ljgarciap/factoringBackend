@@ -44,9 +44,28 @@ class DashboardController extends Controller
         $fechaInicio = $request->query('fecha_inicio');
         $fechaFin = $request->query('fecha_fin');
         $cliente = $request->query('cliente');
+        $categoria = $request->query('categoria'); // New parameter
 
-        // Helper to apply filters
-        $applyFilters = function($query, $dateField = null) use ($fechaInicio, $fechaFin, $cliente) {
+        $response = [];
+
+        if (!$categoria || $categoria === 'cartera') {
+            $response['cartera'] = $this->getCarteraStats($fechaInicio, $fechaFin, $cliente);
+        }
+
+        if (!$categoria || $categoria === 'factoring' || $categoria === 'pagos') {
+            $response['factoring'] = $this->getFactoringStats($fechaInicio, $fechaFin, $cliente);
+        }
+
+        if (!$categoria || $categoria === 'confirming') {
+            $response['confirming'] = $this->getConfirmingStats($fechaInicio, $fechaFin, $cliente);
+        }
+
+        return response()->json($response);
+    }
+
+    private function getApplyFilters($fechaInicio, $fechaFin, $cliente)
+    {
+        return function($query, $dateField = null) use ($fechaInicio, $fechaFin, $cliente) {
             if ($cliente) {
                 $table = $query->getModel()->getTable();
                 $columns = \Illuminate\Support\Facades\Schema::getColumnListing($table);
@@ -74,8 +93,11 @@ class DashboardController extends Controller
             }
             return $query;
         };
+    }
 
-        // 1. CARTERA STATS
+    private function getCarteraStats($fechaInicio, $fechaFin, $cliente)
+    {
+        $applyFilters = $this->getApplyFilters($fechaInicio, $fechaFin, $cliente);
         $carteraQuery = $applyFilters(\App\Models\OperacionCartera::query(), 'created_at');
         $totalCarteraCount = (clone $carteraQuery)->count();
         $totalSaldoCapital = (clone $carteraQuery)->sum('saldo_capital');
@@ -104,7 +126,7 @@ class DashboardController extends Controller
             ->orderBy('valor_mora', 'desc')
             ->limit(10)
             ->get()
-            ->map(function($debtor) use ($carteraQuery, $fechaInicio, $fechaFin) {
+            ->map(function($debtor) use ($carteraQuery) {
                 // Fetch individual operations for this debtor that are in mora
                 $debtor->detalles = (clone $carteraQuery)
                     ->where('identificacion', $debtor->identificacion)
@@ -115,10 +137,7 @@ class DashboardController extends Controller
                 return $debtor;
             });
 
-
-        // City Distribution
         // Daily Disbursements Breakdown (Reporte de Desembolsos)
-        // Group by parsed date and client to ensure unique rows
         $dailyDisbursements = (clone $carteraQuery)
             ->selectRaw("
                 CASE 
@@ -157,9 +176,25 @@ class DashboardController extends Controller
             ->groupBy('plan_amortizacion')
             ->get();
 
+        return [
+            'count' => $totalCarteraCount,
+            'unique_clients' => $uniqueClients,
+            'movs_per_client' => $movsPerClient,
+            'saldo_capital' => (float)$totalSaldoCapital,
+            'mora_index' => round($moraIndex, 4), 
+            'total_mora' => (float)$totalMoraVal,
+            'ciudades' => $sectoresCiudades,
+            'actividad' => $actividadEconomica,
+            'amortizacion' => $amortizacion,
+            'client_ranking' => $clientRanking,
+            'debtors' => $currentDebtors,
+            'daily_disbursements' => $dailyDisbursements
+        ];
+    }
 
-
-        // 2. FACTORING STATS (OP & PAGOS)
+    private function getFactoringStats($fechaInicio, $fechaFin, $cliente)
+    {
+        $applyFilters = $this->getApplyFilters($fechaInicio, $fechaFin, $cliente);
         $factoringOpQuery = $applyFilters(\App\Models\OperacionFactoring::query(), 'created_at');
         $factoringOpCount = (clone $factoringOpQuery)->count();
         $totalFinanced = (clone $factoringOpQuery)->sum('monto');
@@ -236,7 +271,7 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Daily Payments Breakdown (Table from previous task, keeping it for history)
+        // Daily Payments Breakdown
         $dailyPayments = (clone $pagosQuery)
             ->selectRaw("
                 CASE 
@@ -259,7 +294,29 @@ class DashboardController extends Controller
             ->limit(30)
             ->get();
 
-        // 3. CONFIRMING STATS
+        return [
+            'op_count' => $factoringOpCount,
+            'volumen_total' => (float)$totalFinanced,
+            'valor_desembolsado' => (float)$totalDisbursed,
+            'valor_reserva' => (float)$totalReserva,
+            'avg_tasa' => $avgTasaFactoring ? round($avgTasaFactoring, 2) : 0,
+            'pagos_count' => $pagosCount,
+            'total_collected' => (float)$totalCollected,
+            'efficiency_score' => $efficiencyScore ? round($efficiencyScore, 1) : 0,
+            'early_payment_cost' => (float)$earlyPaymentCost,
+            'outstanding_balance' => (float)$outstandingBalance,
+            'daily_payments' => $dailyPayments,
+            'payment_timeline' => $paymentTimeline,
+            'payment_distribution' => $paymentDistribution,
+            'payment_entries' => $paymentEntries,
+            'exposure_by_payer' => $exposureByPayer,
+            'vencimientos' => $vencimientos
+        ];
+    }
+
+    private function getConfirmingStats($fechaInicio, $fechaFin, $cliente)
+    {
+        $applyFilters = $this->getApplyFilters($fechaInicio, $fechaFin, $cliente);
         $confirmingQuery = $applyFilters(\App\Models\OperacionConfirming::query(), 'created_at');
         $confirmingCount = (clone $confirmingQuery)->count();
         $totalConfirmingVal = (clone $confirmingQuery)->sum('valor_nominal');
@@ -267,7 +324,7 @@ class DashboardController extends Controller
         $totalPagarDeudores = (clone $confirmingQuery)->sum('valor_pagar_deudor');
         $avgTasaConfirming = (clone $confirmingQuery)->avg('tasa_factor');
 
-        // Análisis de Emisores (Pie Chart based on Valor Nominal)
+        // Análisis de Emisores
         $analysisEmitters = (clone $confirmingQuery)
             ->select('emisor', 'emisor_nit as identificacion', \Illuminate\Support\Facades\DB::raw('SUM(valor_nominal) as total'))
             ->groupBy('emisor', 'emisor_nit')
@@ -281,7 +338,6 @@ class DashboardController extends Controller
             ->limit(15)
             ->get()
             ->map(function($v) {
-                // Parse "dd/mm/yyyy" to standard format if needed
                 $fecha = $v->fecha_final;
                 if (strpos($fecha, '/') !== false) {
                     try {
@@ -296,7 +352,7 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Gráfico de Barras de Tasa Media (by Emisor)
+        // Gráfico de Barras de Tasa Media
         $avgTasaByEmisor = (clone $confirmingQuery)
             ->select('emisor', \Illuminate\Support\Facades\DB::raw('AVG(tasa_factor) as avg_tasa'))
             ->groupBy('emisor')
@@ -318,51 +374,16 @@ class DashboardController extends Controller
                 ];
             });
 
-        return response()->json([
-            'cartera' => [
-
-                'count' => $totalCarteraCount,
-                'unique_clients' => $uniqueClients,
-                'movs_per_client' => $movsPerClient,
-                'saldo_capital' => (float)$totalSaldoCapital,
-                'mora_index' => round($moraIndex, 4), // Higher precision for dashboard reference
-                'total_mora' => (float)$totalMoraVal,
-                'ciudades' => $sectoresCiudades,
-                'actividad' => $actividadEconomica,
-                'amortizacion' => $amortizacion,
-                'client_ranking' => $clientRanking,
-                'debtors' => $currentDebtors,
-                'daily_disbursements' => $dailyDisbursements
-            ],
-            'factoring' => [
-                'op_count' => $factoringOpCount,
-                'volumen_total' => (float)$totalFinanced,
-                'valor_desembolsado' => (float)$totalDisbursed,
-                'valor_reserva' => (float)$totalReserva,
-                'avg_tasa' => $avgTasaFactoring ? round($avgTasaFactoring, 2) : 0,
-                'pagos_count' => $pagosCount,
-                'total_collected' => (float)$totalCollected,
-                'efficiency_score' => $efficiencyScore ? round($efficiencyScore, 1) : 0,
-                'early_payment_cost' => (float)$earlyPaymentCost,
-                'outstanding_balance' => (float)$outstandingBalance,
-                'daily_payments' => $dailyPayments,
-                'payment_timeline' => $paymentTimeline,
-                'payment_distribution' => $paymentDistribution,
-                'payment_entries' => $paymentEntries,
-                'exposure_by_payer' => $exposureByPayer,
-                'vencimientos' => $vencimientos
-            ],
-            'confirming' => [
-                'count' => $confirmingCount,
-                'total_val' => (float)$totalConfirmingVal,
-                'rendimientos_proyectados' => (float)$totalRendimientos,
-                'total_pagar_deudores' => (float)$totalPagarDeudores,
-                'avg_tasa' => $avgTasaConfirming ? round($avgTasaConfirming, 2) : 0,
-                'analisis_emisores' => $analysisEmitters,
-                'vencimientos' => $vencimientosConfirming,
-                'tasa_media_emisor' => $avgTasaByEmisor,
-                'rendimientos_emisor' => $rendimientosByEmisor
-            ],
-        ]);
+        return [
+            'count' => $confirmingCount,
+            'total_val' => (float)$totalConfirmingVal,
+            'rendimientos_proyectados' => (float)$totalRendimientos,
+            'total_pagar_deudores' => (float)$totalPagarDeudores,
+            'avg_tasa' => $avgTasaConfirming ? round($avgTasaConfirming, 2) : 0,
+            'analisis_emisores' => $analysisEmitters,
+            'vencimientos' => $vencimientosConfirming,
+            'tasa_media_emisor' => $avgTasaByEmisor,
+            'rendimientos_emisor' => $rendimientosByEmisor
+        ];
     }
 }
