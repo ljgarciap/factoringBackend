@@ -88,7 +88,7 @@ class SystemLogController extends Controller
 
             return response()->json(['message' => 'Datos reprocesados correctamente.']);
             
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \App\Models\SystemLog::create([
                 'categoria' => $log->categoria,
                 'filename' => $log->filename,

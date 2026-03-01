@@ -67,7 +67,7 @@ class N8nWebhookController extends Controller
 
             return response()->json(['message' => 'Datos procesados correctamente']);
             
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             SystemLog::create([
                 'categoria' => $categoria,
                 'filename' => $filename,
