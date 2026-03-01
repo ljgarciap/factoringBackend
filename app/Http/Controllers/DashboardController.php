@@ -219,12 +219,36 @@ class DashboardController extends Controller
             ->get()
             ->map(function($v) {
                 $today = now();
-                $venc = \Illuminate\Support\Carbon::parse($v->fecha_vencimiento);
+                $fechaStr = $v->fecha_vencimiento;
+                $venc = null;
+
+                if ($fechaStr) {
+                    if (strpos($fechaStr, '/') !== false) {
+                        try {
+                            $venc = \Illuminate\Support\Carbon::createFromFormat('d/m/Y', $fechaStr);
+                        } catch (\Exception $e) {
+                            try {
+                                $venc = \Illuminate\Support\Carbon::parse($fechaStr);
+                            } catch (\Exception $e2) {
+                                $venc = now();
+                            }
+                        }
+                    } else {
+                        try {
+                            $venc = \Illuminate\Support\Carbon::parse($fechaStr);
+                        } catch (\Exception $e) {
+                            $venc = now();
+                        }
+                    }
+                } else {
+                    $venc = now();
+                }
+
                 $diff = $today->diffInDays($venc, false);
                 
                 return [
                     'pagador' => $v->pagador,
-                    'fecha' => $v->fecha_vencimiento,
+                    'fecha' => $fechaStr,
                     'monto' => $v->monto,
                     'dias' => (int)$diff,
                     'estado' => $diff < 0 ? 'Vencido' : ($diff <= 15 ? 'Por Vencer' : 'Vigente')
