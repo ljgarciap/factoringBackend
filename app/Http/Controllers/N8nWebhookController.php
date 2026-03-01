@@ -141,8 +141,6 @@ class N8nWebhookController extends Controller
         }
     }
 
-    }
-
     /**
      * Maps legacy camelCase/Accented keys (from Google Sheets) to the new snake_case database columns.
      */
