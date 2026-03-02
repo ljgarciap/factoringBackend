@@ -16,3 +16,6 @@ Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryControll
 Route::get('/sectores', \App\Http\Controllers\SectorController::class);
 Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index']);
 Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry']);
+
+// (Asegurado) Endpoint POST agregado para reintentos de auditoría
+
