@@ -3,13 +3,21 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// PARCHE: Soporte para X-Authorization (Bypass de LiteSpeed/Shared Hosting)
+// PARCHE: Forzar respuesta JSON y soporte X-Authorization
 \Illuminate\Support\Facades\Request::macro('bearerToken', function () {
     $header = $this->header('Authorization') ?: $this->header('X-Authorization');
-    if (str_starts_with($header ?? '', 'Bearer ')) {
-        return mb_substr($header, 7);
+    if ($header && strpos($header, 'Bearer ') === 0) {
+        return substr($header, 7);
     }
     return $this->query('token');
+});
+
+\Illuminate\Support\Facades\Request::macro('expectsJson', function () {
+    return true;
+});
+
+\Illuminate\Support\Facades\Request::macro('wantsJson', function () {
+    return true;
 });
 
 Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookController::class, 'handle'])
