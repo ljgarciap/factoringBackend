@@ -10,6 +10,13 @@ Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookControl
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(['auth:api'])->group(function () {
+    Route::get('/debug-inside', function (Request $request) {
+        return [
+            'mensaje' => 'Si ves esto, auth:api SI funciona',
+            'user' => $request->user('api')
+        ];
+    });
+
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
