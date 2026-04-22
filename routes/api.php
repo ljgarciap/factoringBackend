@@ -3,19 +3,52 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
-
 Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookController::class, 'handle'])
     ->middleware(\App\Http\Middleware\VerifyN8nToken::class);
-Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats']);
-Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index']);
-Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord']);
-Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export']);
-Route::get('/sectores', \App\Http\Controllers\SectorController::class);
-Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index']);
-Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry']);
+
+use App\Http\Controllers\AuthController;
+
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+    
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
+        ->middleware('role:gerente');
+
+    Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
+        ->middleware('role:gerente,operativo');
+
+    Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
+        ->middleware('role:gerente,operativo');
+
+    Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
+        ->middleware('role:gerente');
+
+    Route::get('/sectores', \App\Http\Controllers\SectorController::class);
+    
+    Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
+        ->middleware('role:gerente');
+
+    Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
+        ->middleware('role:gerente');
+
+    // --- Client Upload Module ---
+    Route::prefix('uploads')->group(function () {
+        Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount']);
+        Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
+        Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
+        Route::post('/{id}/validate', [\App\Http\Controllers\ClientUploadController::class, 'validateUpload'])->middleware('role:operativo');
+        Route::post('/{id}/approve', [\App\Http\Controllers\ClientUploadController::class, 'approveUpload'])->middleware('role:gerente');
+    });
+});
 
 // (Asegurado) Endpoint POST agregado para reintentos de auditoría
 
@@ -23,7 +56,7 @@ Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::clas
 use App\Http\Controllers\ContableImportController;
 use App\Http\Controllers\ContableController;
 
-Route::prefix('contable')->group(function () {
+Route::prefix('contable')->middleware(['auth:sanctum', 'role:gerente,operativo'])->group(function () {
     Route::post('/upload/{type}', [ContableImportController::class, 'upload']);
     Route::get('/facturas', [ContableController::class, 'getFacturas']);
     Route::get('/bancos', [ContableController::class, 'getBancos']);
@@ -36,7 +69,7 @@ Route::prefix('contable')->group(function () {
 
 use App\Http\Controllers\PlanillaController;
 
-Route::prefix('planilla')->group(function () {
+Route::prefix('planilla')->middleware(['auth:sanctum', 'role:gerente,operativo'])->group(function () {
     Route::get('/fincas', [PlanillaController::class, 'getFincas']);
     Route::post('/fincas', [PlanillaController::class, 'storeFinca']);
     
