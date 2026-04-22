@@ -20,7 +20,8 @@ Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api');
 Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:api');
 
-Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats']);
+Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
+    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
 
 Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
     ->middleware('checkrole:gerente,operativo');
@@ -39,7 +40,8 @@ Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
 Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
     ->middleware('checkrole:gerente');
 
-Route::get('/uploads/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount']);
+Route::get('/uploads/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
+    ->middleware('checkrole:gerente,operativo');
 
 Route::prefix('uploads')->middleware('checkrole')->group(function () {
     Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
