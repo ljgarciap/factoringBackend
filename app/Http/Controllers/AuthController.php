@@ -26,7 +26,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'token' => $user->createToken('auth_token')->accessToken,
+            'token' => $user->createToken('authToken')->accessToken,
             'user' => $user,
             'roles' => $user->roles
         ]);
@@ -34,7 +34,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->token()->revoke();
         return response()->json(['message' => 'Sesión cerrada correctamente']);
     }
 
