@@ -26,7 +26,14 @@ Route::middleware(['auth:api'])->group(function () {
     });
 
     Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-        ->middleware('role:gerente,operativo');
+        ->middleware(function ($request, $next) {
+            $user = auth('api')->user();
+            $roles = ['gerente', 'operativo'];
+            if (!$user || (!array_intersect($user->roles ?? [], $roles) && !in_array('superadmin', $user->roles ?? []))) {
+                return response()->json(['message' => 'Unauthorized role inline.'], 403);
+            }
+            return $next($request);
+        });
 
     Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
         ->middleware('role:gerente,operativo');
