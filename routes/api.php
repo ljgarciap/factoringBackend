@@ -2,32 +2,14 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-// PARCHE: Forzar respuesta JSON y soporte X-Authorization
-\Illuminate\Support\Facades\Request::macro('bearerToken', function () {
-    $header = $this->header('Authorization') ?: $this->header('X-Authorization');
-    if ($header && strpos($header, 'Bearer ') === 0) {
-        return substr($header, 7);
-    }
-    return $this->query('token');
-});
-
-\Illuminate\Support\Facades\Request::macro('expectsJson', function () {
-    return true;
-});
-
-\Illuminate\Support\Facades\Request::macro('wantsJson', function () {
-    return true;
-});
+use App\Http\Controllers\AuthController;
 
 Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookController::class, 'handle'])
     ->middleware(\App\Http\Middleware\VerifyN8nToken::class);
 
-use App\Http\Controllers\AuthController;
-
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:api'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
@@ -68,13 +50,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 });
 
-// (Asegurado) Endpoint POST agregado para reintentos de auditoría
-
-
 use App\Http\Controllers\ContableImportController;
 use App\Http\Controllers\ContableController;
 
-Route::prefix('contable')->middleware(['auth:sanctum', 'role:gerente,operativo'])->group(function () {
+Route::prefix('contable')->middleware(['auth:api', 'role:gerente,operativo'])->group(function () {
     Route::post('/upload/{type}', [ContableImportController::class, 'upload']);
     Route::get('/facturas', [ContableController::class, 'getFacturas']);
     Route::get('/bancos', [ContableController::class, 'getBancos']);
@@ -87,7 +66,7 @@ Route::prefix('contable')->middleware(['auth:sanctum', 'role:gerente,operativo']
 
 use App\Http\Controllers\PlanillaController;
 
-Route::prefix('planilla')->middleware(['auth:sanctum', 'role:gerente,operativo'])->group(function () {
+Route::prefix('planilla')->middleware(['auth:api', 'role:gerente,operativo'])->group(function () {
     Route::get('/fincas', [PlanillaController::class, 'getFincas']);
     Route::post('/fincas', [PlanillaController::class, 'storeFinca']);
     
@@ -105,31 +84,4 @@ Route::prefix('planilla')->middleware(['auth:sanctum', 'role:gerente,operativo']
     Route::post('/gastos', [PlanillaController::class, 'storeGasto']);
     
     Route::get('/resumen', [PlanillaController::class, 'getResumen']);
-});
-
-// RUTA DE PRUEBA: Diagnóstico de autenticación
-Route::get('/debug-header', function (Illuminate\Http\Request $request) {
-    $authHeader = $request->header('Authorization');
-    $token = str_replace('Bearer ', '', $authHeader);
-    
-    return [
-        'authorization_header' => $authHeader,
-        'token_extracted' => $token,
-        'all_headers' => $request->headers->all(),
-        'token_found_in_db' => \Laravel\Sanctum\PersonalAccessToken::findToken($token) ? 'SÍ' : 'NO',
-        'app_url' => config('app.url'),
-        'sanctum_stateful' => config('sanctum.stateful'),
-    ];
-});
-
-// RUTA DE EMERGENCIA: Para ver por qué da error 500
-Route::get('/debug-log', function () {
-    $logPath = storage_path('logs/laravel.log');
-    if (!file_exists($logPath)) return "No hay archivo de logs.";
-    $lines = file($logPath);
-    return array_reverse(array_slice($lines, -100)); // Últimas 100 líneas
-});
-
-Route::get('/debug-users', function () {
-    return \App\Models\User::all(['id', 'name', 'email', 'roles']);
 });
