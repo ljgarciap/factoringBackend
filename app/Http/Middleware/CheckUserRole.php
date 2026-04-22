@@ -19,25 +19,34 @@ class CheckUserRole
         // Autenticación manual usando la guardia api (lo que sabemos que funciona)
         try {
             $user = auth('api')->user();
+            
+            // Fallback manual si Passport falla por llaves RSA
+            if (!$user && $request->hasHeader('Authorization')) {
+                $rawToken = str_replace('Bearer ', '', $request->header('Authorization'));
+                $tokenId = json_decode(base64_decode(explode('.', $rawToken)[1] ?? ''), true)['jti'] ?? null;
+                
+                if ($tokenId) {
+                    $tokenRecord = \DB::table('oauth_access_tokens')
+                        ->where('id', $tokenId)
+                        ->where('revoked', false)
+                        ->where('expires_at', '>', now())
+                        ->first();
+                        
+                    if ($tokenRecord) {
+                        $user = \App\Models\User::find($tokenRecord->user_id);
+                    }
+                }
+            }
         } catch (\Exception $e) {
             \Log::error('Passport Exception:', ['msg' => $e->getMessage()]);
             $user = null;
         }
 
         if (!$user) {
-            // Intento manual para ver si el usuario existe
-            $manualUser = \App\Models\User::find(4);
-            
-            \Log::warning('Passport Failure Diagnostic:', [
-                'auth_check' => auth('api')->check(),
-                'user_4_exists' => $manualUser ? 'YES' : 'NO',
-                'db_name' => \DB::getDatabaseName(),
-            ]);
-
             return response()->json([
                 'message' => 'Unauthenticated.',
-                'debug' => 'Passport fallo. Usuario 4 existe: ' . ($manualUser ? 'SI' : 'NO'),
-                'db' => \DB::getDatabaseName(),
+                'debug' => 'Validacion manual y Passport fallaron.',
+                'token_id_detected' => $tokenId ?? 'none'
             ], 401);
         }
 
