@@ -46,8 +46,16 @@ Route::middleware(['auth:api'])->group(function () {
         Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
         Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
         Route::post('/{id}/validate', [\App\Http\Controllers\ClientUploadController::class, 'validateUpload'])->middleware('role:operativo');
-        Route::post('/{id}/approve', [\App\Http\Controllers\ClientUploadController::class, 'approveUpload'])->middleware('role:gerente');
     });
+});
+
+Route::get('/debug-passport', function (Illuminate\Http\Request $request) {
+    return [
+        'user' => $request->user('api') ? $request->user('api')->email : 'NADIE',
+        'auth_header' => $request->header('Authorization'),
+        'all_headers' => $request->headers->all(),
+        'guard_api_driver' => config('auth.guards.api.driver'),
+    ];
 });
 
 use App\Http\Controllers\ContableImportController;
