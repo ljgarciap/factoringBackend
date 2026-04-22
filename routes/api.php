@@ -21,7 +21,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api'
 Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:api');
 
 Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+    ->middleware(['checkrole:gerente,operativo']);
 
 Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
     ->middleware('checkrole:gerente,operativo');

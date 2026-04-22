@@ -25,11 +25,19 @@ class CheckUserRole
         }
 
         if (!$user) {
+            // Intento manual para ver si el usuario existe
+            $manualUser = \App\Models\User::find(4);
+            
+            \Log::warning('Passport Failure Diagnostic:', [
+                'auth_check' => auth('api')->check(),
+                'user_4_exists' => $manualUser ? 'YES' : 'NO',
+                'db_name' => \DB::getDatabaseName(),
+            ]);
+
             return response()->json([
                 'message' => 'Unauthenticated.',
-                'debug' => 'Passport no pudo validar el token.',
-                'server_time' => now()->toDateTimeString(),
-                'token_length' => strlen($request->header('Authorization'))
+                'debug' => 'Passport fallo. Usuario 4 existe: ' . ($manualUser ? 'SI' : 'NO'),
+                'db' => \DB::getDatabaseName(),
             ], 401);
         }
 
