@@ -17,10 +17,17 @@ class CheckUserRole
         ]);
 
         // Autenticación manual usando la guardia api (lo que sabemos que funciona)
-        $user = $request->user('api');
+        $user = auth('api')->user();
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            \Log::warning('Passport Failed to resolve user', [
+                'token_present' => $request->hasHeader('Authorization'),
+                'guard' => config('auth.guards.api.driver'),
+            ]);
+            return response()->json([
+                'message' => 'Unauthenticated.',
+                'debug' => 'Passport no pudo validar el token que llego.'
+            ], 401);
         }
 
         if (empty($roles)) {
