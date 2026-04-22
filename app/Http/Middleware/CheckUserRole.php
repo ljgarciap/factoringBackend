@@ -10,6 +10,12 @@ class CheckUserRole
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
+        \Log::info('Auth Debug:', [
+            'has_header' => $request->hasHeader('Authorization'),
+            'header' => $request->header('Authorization'),
+            'all_headers' => $request->headers->all()
+        ]);
+
         // Autenticación manual usando la guardia api (lo que sabemos que funciona)
         $user = $request->user('api');
 
