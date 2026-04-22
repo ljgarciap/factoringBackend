@@ -20,7 +20,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-        ->middleware('role:gerente');
+        ->middleware('role:gerente,operativo');
 
     Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
         ->middleware('role:gerente,operativo');
@@ -41,7 +41,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // --- Client Upload Module ---
     Route::prefix('uploads')->group(function () {
-        Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount']);
+        Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
+            ->middleware('role:gerente,operativo');
         Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
         Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
@@ -110,4 +111,8 @@ Route::get('/debug-log', function () {
     if (!file_exists($logPath)) return "No hay archivo de logs.";
     $lines = file($logPath);
     return array_reverse(array_slice($lines, -100)); // Últimas 100 líneas
+});
+
+Route::get('/debug-users', function () {
+    return \App\Models\User::all(['id', 'name', 'email', 'roles']);
 });
