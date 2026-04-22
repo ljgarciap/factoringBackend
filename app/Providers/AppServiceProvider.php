@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Laravel\Passport\Passport::useUserModel(\App\Models\User::class);
+
         if (request()->is('api/*')) {
             \Log::info('GLOBAL API Debug:', [
                 'url' => request()->fullUrl(),
