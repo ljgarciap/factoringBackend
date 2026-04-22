@@ -9,57 +9,38 @@ Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookControl
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware(['auth:api'])->group(function () {
-    Route::get('/debug-inside', function (Request $request) {
-        return [
-            'mensaje' => 'Si ves esto, auth:api SI funciona',
-            'user' => $request->user('api')
-        ];
-    });
+Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api');
+Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:api');
 
-    Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/change-password', [AuthController::class, 'changePassword']);
-    
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
+    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
 
-    Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-        ->middleware('checkrole:gerente,operativo');
+Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
+    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
 
-    Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
-        ->middleware('checkrole:gerente,operativo');
+Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
+    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
 
-    Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
-        ->middleware('checkrole:gerente,operativo');
+Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
+    ->middleware(['auth:api', 'checkrole:gerente']);
 
-    Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
-        ->middleware('checkrole:gerente');
+Route::get('/sectores', \App\Http\Controllers\SectorController::class)->middleware('auth:api');
 
-    Route::get('/sectores', \App\Http\Controllers\SectorController::class);
-    
-    Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
-        ->middleware('checkrole:gerente');
+Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
+    ->middleware(['auth:api', 'checkrole:gerente']);
 
-    Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
-        ->middleware('checkrole:gerente');
+Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
+    ->middleware(['auth:api', 'checkrole:gerente']);
 
-    // --- Client Upload Module ---
-    Route::prefix('uploads')->group(function () {
-        Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
-            ->middleware(['auth:api', function($request, $next) {
-                $user = auth('api')->user();
-                if (!$user) {
-                    return response()->json(['misterio' => 'Aun con auth:api explicito, no hay usuario'], 418);
-                }
-                return $next($request);
-            }]);
-        Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
-        Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
-        Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
-        Route::post('/{id}/validate', [\App\Http\Controllers\ClientUploadController::class, 'validateUpload'])->middleware('role:operativo');
-    });
+Route::get('/uploads/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
+    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+
+Route::prefix('uploads')->middleware('auth:api')->group(function () {
+    Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('checkrole:cliente');
+    Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('checkrole:operativo,gerente');
+    Route::post('/{id}/validate', [\App\Http\Controllers\ClientUploadController::class, 'validateUpload'])->middleware('checkrole:operativo');
 });
 
 Route::get('/debug-passport', function (Illuminate\Http\Request $request) {
