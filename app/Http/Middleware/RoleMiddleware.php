@@ -18,7 +18,10 @@ class RoleMiddleware
         $user = auth('api')->user();
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return response()->json([
+                'message' => 'DEBUG: No hay usuario',
+                'debug_info' => 'Si ves esto, el archivo se subio bien'
+            ], 418);
         }
 
         if (empty($roles)) {
