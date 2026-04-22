@@ -88,3 +88,18 @@ Route::prefix('planilla')->middleware(['auth:sanctum', 'role:gerente,operativo']
     
     Route::get('/resumen', [PlanillaController::class, 'getResumen']);
 });
+
+// RUTA DE PRUEBA: Diagnóstico de autenticación
+Route::get('/debug-header', function (Illuminate\Http\Request $request) {
+    $authHeader = $request->header('Authorization');
+    $token = str_replace('Bearer ', '', $authHeader);
+    
+    return [
+        'authorization_header' => $authHeader,
+        'token_extracted' => $token,
+        'all_headers' => $request->headers->all(),
+        'token_found_in_db' => \Laravel\Sanctum\PersonalAccessToken::findToken($token) ? 'SÍ' : 'NO',
+        'app_url' => config('app.url'),
+        'sanctum_stateful' => config('sanctum.stateful'),
+    ];
+});
