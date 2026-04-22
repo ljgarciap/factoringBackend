@@ -48,7 +48,13 @@ Route::middleware(['auth:api'])->group(function () {
     // --- Client Upload Module ---
     Route::prefix('uploads')->group(function () {
         Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
-            ->middleware('checkrole:gerente,operativo');
+            ->middleware(['auth:api', function($request, $next) {
+                $user = auth('api')->user();
+                if (!$user) {
+                    return response()->json(['misterio' => 'Aun con auth:api explicito, no hay usuario'], 418);
+                }
+                return $next($request);
+            }]);
         Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
         Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
