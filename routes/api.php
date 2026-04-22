@@ -26,36 +26,29 @@ Route::middleware(['auth:api'])->group(function () {
     });
 
     Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-        ->middleware(function ($request, $next) {
-            $user = auth('api')->user();
-            $roles = ['gerente', 'operativo'];
-            if (!$user || (!array_intersect($user->roles ?? [], $roles) && !in_array('superadmin', $user->roles ?? []))) {
-                return response()->json(['message' => 'Unauthorized role inline.'], 403);
-            }
-            return $next($request);
-        });
+        ->middleware('checkrole:gerente,operativo');
 
     Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
-        ->middleware('role:gerente,operativo');
+        ->middleware('checkrole:gerente,operativo');
 
     Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
-        ->middleware('role:gerente,operativo');
+        ->middleware('checkrole:gerente,operativo');
 
     Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
-        ->middleware('role:gerente');
+        ->middleware('checkrole:gerente');
 
     Route::get('/sectores', \App\Http\Controllers\SectorController::class);
     
     Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
-        ->middleware('role:gerente');
+        ->middleware('checkrole:gerente');
 
     Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
-        ->middleware('role:gerente');
+        ->middleware('checkrole:gerente');
 
     // --- Client Upload Module ---
     Route::prefix('uploads')->group(function () {
         Route::get('/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
-            ->middleware('role:gerente,operativo');
+            ->middleware('checkrole:gerente,operativo');
         Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('role:cliente');
         Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('role:operativo,gerente');
@@ -75,7 +68,7 @@ Route::get('/debug-passport', function (Illuminate\Http\Request $request) {
 use App\Http\Controllers\ContableImportController;
 use App\Http\Controllers\ContableController;
 
-Route::prefix('contable')->middleware(['auth:api', 'role:gerente,operativo'])->group(function () {
+Route::prefix('contable')->middleware(['auth:api', 'checkrole:gerente,operativo'])->group(function () {
     Route::post('/upload/{type}', [ContableImportController::class, 'upload']);
     Route::get('/facturas', [ContableController::class, 'getFacturas']);
     Route::get('/bancos', [ContableController::class, 'getBancos']);
@@ -88,7 +81,7 @@ Route::prefix('contable')->middleware(['auth:api', 'role:gerente,operativo'])->g
 
 use App\Http\Controllers\PlanillaController;
 
-Route::prefix('planilla')->middleware(['auth:api', 'role:gerente,operativo'])->group(function () {
+Route::prefix('planilla')->middleware(['auth:api', 'checkrole:gerente,operativo'])->group(function () {
     Route::get('/fincas', [PlanillaController::class, 'getFincas']);
     Route::post('/fincas', [PlanillaController::class, 'storeFinca']);
     
