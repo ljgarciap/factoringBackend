@@ -88,14 +88,28 @@ class ClientUploadController extends Controller
     {
         $upload = ClientUpload::findOrFail($id);
         
+        $request->validate([
+            'action' => 'required|in:aprobar,rechazar',
+            'observations' => 'nullable|string'
+        ]);
+
         if ($upload->status !== 'validado') {
-            return response()->json(['message' => 'Solo se pueden aprobar archivos validados.'], 422);
+            return response()->json(['message' => 'Solo se pueden procesar archivos que ya han sido validados por el operativo.'], 422);
         }
 
-        $upload->update([
-            'status' => 'aprobado',
-            'approved_by' => $request->user()->id
-        ]);
+        if ($request->action === 'aprobar') {
+            $upload->update([
+                'status' => 'aprobado',
+                'observations' => $request->observations ?: $upload->observations,
+                'approved_by' => $request->user()->id
+            ]);
+        } else {
+            $upload->update([
+                'status' => 'rechazado',
+                'observations' => $request->observations ?: $upload->observations,
+                'approved_by' => $request->user()->id
+            ]);
+        }
 
         return response()->json($upload);
     }
@@ -103,11 +117,6 @@ class ClientUploadController extends Controller
     public function pendingCount(Request $request)
     {
         $user = $request->user();
-        $count = 0;
-
-        // Note: The frontend sends the active_role in a header if we want, 
-        // but here we can just check what's pending in general or based on roles.
-        
         $operativoCount = ClientUpload::where('status', 'pendiente')->count();
         $gerenteCount = ClientUpload::where('status', 'validado')->count();
 
@@ -116,5 +125,16 @@ class ClientUploadController extends Controller
             'gerente' => $gerenteCount,
             'total' => $operativoCount + $gerenteCount
         ]);
+    }
+
+    public function download($id)
+    {
+        $upload = ClientUpload::findOrFail($id);
+        
+        if (!Storage::exists($upload->filename)) {
+            return response()->json(['message' => 'Archivo no encontrado físicamente en el servidor.'], 404);
+        }
+
+        return Storage::download($upload->filename, $upload->original_name);
     }
 }

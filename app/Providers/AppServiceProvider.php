@@ -20,12 +20,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (request()->is('api/*')) {
-            \Log::info('GLOBAL API Debug:', [
-                'url' => request()->fullUrl(),
-                'has_header' => request()->hasHeader('Authorization'),
-                'header' => request()->header('Authorization'),
-            ]);
-        }
+        //
     }
 }

@@ -18,5 +18,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->report(function (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Global Exception', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 500),
+            ]);
+        });
     })->create();
