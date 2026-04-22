@@ -9,34 +9,34 @@ Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookControl
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api');
-Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:api');
+Route::get('/me', [AuthController::class, 'me'])->middleware('checkrole');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('checkrole');
+Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('checkrole');
 
 Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class, 'stats'])
-    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+    ->middleware('checkrole:gerente,operativo');
 
 Route::get('/history/{categoria}', [\App\Http\Controllers\HistoryController::class, 'index'])
-    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+    ->middleware('checkrole:gerente,operativo');
 
 Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
-    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+    ->middleware('checkrole:gerente,operativo');
 
 Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
-    ->middleware(['auth:api', 'checkrole:gerente']);
+    ->middleware('checkrole:gerente');
 
-Route::get('/sectores', \App\Http\Controllers\SectorController::class)->middleware('auth:api');
+Route::get('/sectores', \App\Http\Controllers\SectorController::class)->middleware('checkrole');
 
 Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
-    ->middleware(['auth:api', 'checkrole:gerente']);
+    ->middleware('checkrole:gerente');
 
 Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
-    ->middleware(['auth:api', 'checkrole:gerente']);
+    ->middleware('checkrole:gerente');
 
 Route::get('/uploads/pending-count', [\App\Http\Controllers\ClientUploadController::class, 'pendingCount'])
-    ->middleware(['auth:api', 'checkrole:gerente,operativo']);
+    ->middleware('checkrole:gerente,operativo');
 
-Route::prefix('uploads')->middleware('auth:api')->group(function () {
+Route::prefix('uploads')->middleware('checkrole')->group(function () {
     Route::get('/', [\App\Http\Controllers\ClientUploadController::class, 'index']);
     Route::post('/', [\App\Http\Controllers\ClientUploadController::class, 'store'])->middleware('checkrole:cliente');
     Route::get('/{id}/download', [\App\Http\Controllers\ClientUploadController::class, 'download'])->middleware('checkrole:operativo,gerente');
@@ -55,7 +55,7 @@ Route::get('/debug-passport', function (Illuminate\Http\Request $request) {
 use App\Http\Controllers\ContableImportController;
 use App\Http\Controllers\ContableController;
 
-Route::prefix('contable')->middleware(['auth:api', 'checkrole:gerente,operativo'])->group(function () {
+Route::prefix('contable')->middleware('checkrole:gerente,operativo')->group(function () {
     Route::post('/upload/{type}', [ContableImportController::class, 'upload']);
     Route::get('/facturas', [ContableController::class, 'getFacturas']);
     Route::get('/bancos', [ContableController::class, 'getBancos']);
@@ -68,7 +68,7 @@ Route::prefix('contable')->middleware(['auth:api', 'checkrole:gerente,operativo'
 
 use App\Http\Controllers\PlanillaController;
 
-Route::prefix('planilla')->middleware(['auth:api', 'checkrole:gerente,operativo'])->group(function () {
+Route::prefix('planilla')->middleware('checkrole:gerente,operativo')->group(function () {
     Route::get('/fincas', [PlanillaController::class, 'getFincas']);
     Route::post('/fincas', [PlanillaController::class, 'storeFinca']);
     

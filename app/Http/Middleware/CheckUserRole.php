@@ -10,10 +10,11 @@ class CheckUserRole
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        $user = auth('api')->user();
+        // Autenticación manual usando la guardia api (lo que sabemos que funciona)
+        $user = $request->user('api');
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated from CheckUserRole.'], 401);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         if (empty($roles)) {
