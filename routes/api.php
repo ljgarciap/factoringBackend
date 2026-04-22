@@ -3,6 +3,15 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// PARCHE: Soporte para X-Authorization (Bypass de LiteSpeed/Shared Hosting)
+\Illuminate\Support\Facades\Request::macro('bearerToken', function () {
+    $header = $this->header('Authorization') ?: $this->header('X-Authorization');
+    if (str_starts_with($header ?? '', 'Bearer ')) {
+        return mb_substr($header, 7);
+    }
+    return $this->query('token');
+});
+
 Route::post('/webhook/n8n/{categoria}', [\App\Http\Controllers\N8nWebhookController::class, 'handle'])
     ->middleware(\App\Http\Middleware\VerifyN8nToken::class);
 
