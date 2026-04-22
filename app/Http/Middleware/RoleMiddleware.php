@@ -15,7 +15,7 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        $user = $request->user('api');
+        $user = auth('api')->user();
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
