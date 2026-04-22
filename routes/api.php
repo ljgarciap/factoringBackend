@@ -103,3 +103,11 @@ Route::get('/debug-header', function (Illuminate\Http\Request $request) {
         'sanctum_stateful' => config('sanctum.stateful'),
     ];
 });
+
+// RUTA DE EMERGENCIA: Para ver por qué da error 500
+Route::get('/debug-log', function () {
+    $logPath = storage_path('logs/laravel.log');
+    if (!file_exists($logPath)) return "No hay archivo de logs.";
+    $lines = file($logPath);
+    return array_reverse(array_slice($lines, -100)); // Últimas 100 líneas
+});
