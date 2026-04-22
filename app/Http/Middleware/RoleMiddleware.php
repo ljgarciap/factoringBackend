@@ -15,7 +15,9 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!$request->user()) {
+        $user = auth()->user();
+
+        if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -23,7 +25,7 @@ class RoleMiddleware
             return $next($request);
         }
 
-        $userRoles = $request->user()->roles ?? [];
+        $userRoles = $user->roles ?? [];
         if (array_intersect($userRoles, $roles) || in_array('superadmin', $userRoles)) {
             return $next($request);
         }
