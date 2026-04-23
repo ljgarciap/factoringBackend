@@ -7,6 +7,7 @@ use App\Models\OperacionCartera;
 use App\Models\OperacionFactoring;
 use App\Models\PagoFactoring;
 use App\Models\OperacionConfirming;
+use App\Models\Compraventa;
 use App\Models\SystemLog;
 
 class N8nWebhookController extends Controller
@@ -21,7 +22,7 @@ class N8nWebhookController extends Controller
      *         name="categoria",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="string", enum={"cartera", "op", "pagos", "opf"})
+     *         @OA\Schema(type="string", enum={"cartera", "op", "pagos", "opf", "compraventa"})
      *     ),
      *     @OA\RequestBody(
      *         required=true,
@@ -145,6 +146,14 @@ class N8nWebhookController extends Controller
                     OperacionConfirming::create($row);
                 }
                 break;
+            case 'compraventa':
+                foreach ($data as $row) {
+                    if (isset($row['vendedor']) && isset($row['nit_vendedor'])) {
+                        $row['nit_vendedor'] = \App\Services\ClientMasterService::masterClient($row['vendedor'], $row['nit_vendedor']);
+                    }
+                    Compraventa::create($row);
+                }
+                break;
             default:
                 throw new \Exception('Categoría no válida');
         }
@@ -231,6 +240,19 @@ class N8nWebhookController extends Controller
             'Reembolso_G_Desembolso' => 'reembolso_g_desembolso',
             'Base_Negociacion' => 'base_negociacion',
             'Rendimientos_Proyectados' => 'rendimientos_proyectados',
+
+            // Compraventa specific
+            'Vendedor' => 'vendedor',
+            'NIT_Vendedor' => 'nit_vendedor',
+            'Comprador' => 'comprador',
+            'NIT_Comprador' => 'nit_comprador',
+            'Factor' => 'factor',
+            'NIT_Factor' => 'nit_factor',
+            'Nro_Factura' => 'nro_factura',
+            'Valor' => 'valor',
+            'Fecha_Vencimiento' => 'fecha_vencimiento',
+            'Banco' => 'banco',
+            'Cuenta_Nro' => 'cuenta_nro',
         ];
 
         return array_map(function ($row) use ($explicitMap) {
@@ -264,6 +286,7 @@ class N8nWebhookController extends Controller
             'op'      => ['name' => 'cliente', 'nit' => 'nit_cliente'],
             'pagos'   => ['name' => 'cliente', 'nit' => 'nit'],
             'opf'     => ['name' => 'emisor',  'nit' => 'emisor_nit'],
+            'compraventa' => ['name' => 'vendedor', 'nit' => 'nit_vendedor'],
         ];
 
         if (!isset($keys[$categoria])) return $data;

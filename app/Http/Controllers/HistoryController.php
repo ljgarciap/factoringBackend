@@ -51,6 +51,9 @@ class HistoryController extends Controller
             case 'opf':
                 $modelClass = \App\Models\OperacionConfirming::class;
                 break;
+            case 'compraventa':
+                $modelClass = \App\Models\Compraventa::class;
+                break;
             default:
                 return response()->json(['message' => 'Categoría no válida'], 400);
         }
@@ -106,6 +109,7 @@ class HistoryController extends Controller
             case 'op': $modelClass = \App\Models\OperacionFactoring::class; break;
             case 'pagos': $modelClass = \App\Models\PagoFactoring::class; break;
             case 'opf': $modelClass = \App\Models\OperacionConfirming::class; break;
+            case 'compraventa': $modelClass = \App\Models\Compraventa::class; break;
             default: return response()->json(['message' => 'Categoría no válida'], 400);
         }
 
@@ -154,6 +158,7 @@ class HistoryController extends Controller
             case 'op': $modelClass = \App\Models\OperacionFactoring::class; break;
             case 'pagos': $modelClass = \App\Models\PagoFactoring::class; break;
             case 'opf': $modelClass = \App\Models\OperacionConfirming::class; break;
+            case 'compraventa': $modelClass = \App\Models\Compraventa::class; break;
             default: abort(400);
         }
         $query = $modelClass::query();

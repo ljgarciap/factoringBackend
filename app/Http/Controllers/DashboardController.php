@@ -60,6 +60,10 @@ class DashboardController extends Controller
             $response['confirming'] = $this->getConfirmingStats($fechaInicio, $fechaFin, $cliente);
         }
 
+        if (!$categoria || $categoria === 'compraventa') {
+            $response['compraventa'] = $this->getCompraventaStats($fechaInicio, $fechaFin, $cliente);
+        }
+
         return response()->json($response);
     }
 
@@ -408,6 +412,45 @@ class DashboardController extends Controller
             'vencimientos' => $vencimientosConfirming,
             'tasa_media_emisor' => $avgTasaByEmisor,
             'rendimientos_emisor' => $rendimientosByEmisor
+        ];
+    }
+
+    private function getCompraventaStats($fechaInicio, $fechaFin, $cliente)
+    {
+        $applyFilters = $this->getApplyFilters($fechaInicio, $fechaFin, $cliente);
+        $query = $applyFilters(\App\Models\Compraventa::query(), 'created_at');
+        
+        $totalVal = (clone $query)->sum('valor');
+        $count = (clone $query)->count();
+        $uniqueVendedores = (clone $query)->distinct('nit_vendedor')->count();
+        
+        $topVendedores = (clone $query)
+            ->select('vendedor', 'nit_vendedor', \Illuminate\Support\Facades\DB::raw('SUM(valor) as total'))
+            ->groupBy('vendedor', 'nit_vendedor')
+            ->orderBy('total', 'desc')
+            ->limit(10)
+            ->get();
+            
+        $topCompradores = (clone $query)
+            ->select('comprador', 'nit_comprador', \Illuminate\Support\Facades\DB::raw('SUM(valor) as total'))
+            ->groupBy('comprador', 'nit_comprador')
+            ->orderBy('total', 'desc')
+            ->limit(10)
+            ->get();
+
+        $vencimientos = (clone $query)
+            ->select('nro_factura', 'vendedor', 'comprador', 'fecha_vencimiento', 'valor')
+            ->orderBy('fecha_vencimiento', 'asc')
+            ->limit(15)
+            ->get();
+
+        return [
+            'total_val' => (float)$totalVal,
+            'count' => $count,
+            'unique_vendedores' => $uniqueVendedores,
+            'top_vendedores' => $topVendedores,
+            'top_compradores' => $topCompradores,
+            'vencimientos' => $vencimientos
         ];
     }
 }
