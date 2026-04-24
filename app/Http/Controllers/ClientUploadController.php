@@ -42,7 +42,7 @@ class ClientUploadController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|max:10240', // 10MB limit
+            'file' => 'required|file|max:102400', // Aumentado a 100MB para coincidir con Nginx
         ]);
 
         $file = $request->file('file');
@@ -54,6 +54,25 @@ class ClientUploadController extends Controller
             'original_name' => $file->getClientOriginalName(),
             'status' => 'pendiente',
         ]);
+
+        // REENVÍO INTERNO A n8n (Sin CORS, sin Firewall)
+        try {
+            $webhookUrl = env('N8N_INTERNAL_WEBHOOK_URL');
+            if ($webhookUrl) {
+                \Illuminate\Support\Facades\Http::attach(
+                    'file', 
+                    file_get_contents($file->getRealPath()), 
+                    $file->getClientOriginalName()
+                )->post($webhookUrl, [
+                    'upload_id' => $upload->id,
+                    'user_id' => $upload->user_id,
+                    'original_name' => $upload->original_name
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Loguear error pero no detener la respuesta al cliente
+            \Illuminate\Support\Facades\Log::error("Error enviando a n8n: " . $e->getMessage());
+        }
 
         return response()->json($upload);
     }
