@@ -21,11 +21,9 @@ return [
 
     'allowed_origins' => [
         'http://localhost:4200',
-        'http://127.0.0.1:4200',
-        'http://[::1]:4200',
-        'https://testing.softclass.co',
-        'https://apitesting.softclass.co',
-        env('FRONTEND_URL', 'http://localhost:4200')
+        'http://auto.proseguirliquidez.com',
+        'http://173.201.39.182',
+        env('FRONTEND_URL', '*')
     ],
 
     'allowed_origins_patterns' => [],
