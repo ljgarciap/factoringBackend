@@ -30,8 +30,7 @@ Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class
         Route::patch('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'updateRecord'])
             ->middleware(['auth:api', 'checkrole:gerente,operativo,superadmin']);
         
-        Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export'])
-            ->middleware(['auth:api', 'checkrole:gerente,superadmin']);
+        Route::get('/history/{categoria}/export', [\App\Http\Controllers\HistoryController::class, 'export']);
         
         // Sectores
         Route::get('/sectores', \App\Http\Controllers\SectorController::class)
