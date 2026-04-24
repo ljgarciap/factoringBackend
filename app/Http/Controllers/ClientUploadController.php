@@ -57,9 +57,11 @@ class ClientUploadController extends Controller
 
         // REENVÍO INTERNO A n8n (Sin CORS, sin Firewall)
         try {
-            $webhookUrl = env('N8N_INTERNAL_WEBHOOK_URL');
+            $webhookUrl = config('services.n8n.webhook_url');
+            \Illuminate\Support\Facades\Log::info("Intentando enviar a n8n: " . $webhookUrl);
+            
             if ($webhookUrl) {
-                \Illuminate\Support\Facades\Http::attach(
+                $response = \Illuminate\Support\Facades\Http::attach(
                     'file', 
                     file_get_contents($file->getRealPath()), 
                     $file->getClientOriginalName()
@@ -68,9 +70,11 @@ class ClientUploadController extends Controller
                     'user_id' => $upload->user_id,
                     'original_name' => $upload->original_name
                 ]);
+                \Illuminate\Support\Facades\Log::info("Respuesta de n8n: " . $response->status());
+            } else {
+                \Illuminate\Support\Facades\Log::warning("No se encontró N8N_INTERNAL_WEBHOOK_URL en la configuración.");
             }
         } catch (\Exception $e) {
-            // Loguear error pero no detener la respuesta al cliente
             \Illuminate\Support\Facades\Log::error("Error enviando a n8n: " . $e->getMessage());
         }
 
