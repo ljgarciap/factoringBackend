@@ -68,7 +68,8 @@ class ClientUploadController extends Controller
                 )->post($webhookUrl, [
                     'upload_id' => $upload->id,
                     'user_id' => $upload->user_id,
-                    'original_name' => $upload->original_name
+                    'original_name' => $upload->original_name,
+                    'categoria' => $request->categoria // <--- ESTO FALTABA
                 ]);
                 \Illuminate\Support\Facades\Log::info("Respuesta de n8n: " . $response->status());
             } else {
