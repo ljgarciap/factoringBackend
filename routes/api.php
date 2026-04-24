@@ -91,6 +91,9 @@ Route::prefix('contable')->middleware('auth:api')->group(function () {
     });
 });
 
+Route::post('/settlement/reconcile', [\App\Http\Controllers\SettlementController::class, 'reconcile'])
+    ->middleware(['auth:api', 'checkrole:operativo,superadmin']);
+
 use App\Http\Controllers\PlanillaController;
 
 Route::prefix('planilla')->middleware('auth:api')->group(function () {

@@ -127,6 +127,12 @@ class N8nWebhookController extends Controller
                     if (isset($row['cliente']) && isset($row['nit_cliente'])) {
                         $row['nit_cliente'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit_cliente']);
                     }
+
+                    // Calculation: intereses_diarios = ((valor_aprobado * tasa_descuento) / 30) / 100
+                    $valorAprobado = (float)($row['valor_aprobado'] ?? 0);
+                    $tasa = (float)($row['tasa_descuento'] ?? 0);
+                    $row['intereses_diarios'] = (($valorAprobado * $tasa) / 30) / 100;
+
                     OperacionFactoring::create($row);
                 }
                 break;
@@ -135,6 +141,36 @@ class N8nWebhookController extends Controller
                     if (isset($row['cliente']) && isset($row['nit'])) {
                         $row['nit'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit']);
                     }
+
+                    // Pre-calculation of days if dates are present
+                    try {
+                        $fPagoStr = $row['fecha_pago'] ?? null;
+                        $fFinalStr = $row['fecha_final'] ?? null;
+                        $fInicialStr = $row['fecha_inicial'] ?? null;
+
+                        if ($fPagoStr && $fFinalStr) {
+                            // Helper to parse dates in d/m/Y or fallback to parse
+                            $parseDate = function($dateStr) {
+                                if (str_contains($dateStr, '/')) {
+                                    return \Carbon\Carbon::createFromFormat('d/m/Y', $dateStr);
+                                }
+                                return \Carbon\Carbon::parse($dateStr);
+                            };
+
+                            $fechaPago = $parseDate($fPagoStr);
+                            $fechaFinal = $parseDate($fFinalStr);
+                            $fechaInicial = $fInicialStr ? $parseDate($fInicialStr) : null;
+
+                            $row['dias_sobrantes'] = $fechaPago->diffInDays($fechaFinal, false);
+                            if ($fechaInicial) {
+                                $row['dias_pagos'] = $fechaInicial->diffInDays($fechaPago);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Log error if needed: \Log::error("Date parsing failed: " . $e->getMessage());
+                    }
+
+                    $row['estado_liquidacion'] = 'pendiente';
                     PagoFactoring::create($row);
                 }
                 break;
