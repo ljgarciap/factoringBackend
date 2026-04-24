@@ -62,7 +62,7 @@ class ClientUploadController extends Controller
             
             if ($webhookUrl) {
                 $response = \Illuminate\Support\Facades\Http::attach(
-                    'file', 
+                    'data', 
                     file_get_contents($file->getRealPath()), 
                     $file->getClientOriginalName()
                 )->post($webhookUrl, [
