@@ -108,9 +108,11 @@ class DashboardController extends Controller
         $uniqueClients = (clone $carteraQuery)->distinct('identificacion')->count();
         $movsPerClient = $uniqueClients > 0 ? round($totalCarteraCount / $uniqueClients, 1) : 0;
         
-        // Mora Calculation
-        $moraQuery = (clone $carteraQuery)->where('dias_vencido', '>', 0);
-        $totalMoraVal = (clone $moraQuery)->sum('valor_vencido');
+        // Vencido vs Mora (Separados)
+        $vencidoQuery = (clone $carteraQuery)->where('dias_vencido', '>', 0);
+        $totalVencidoVal = (clone $vencidoQuery)->sum('valor_vencido');
+        $totalMoraVal = (clone $carteraQuery)->sum('valor_mora');
+        
         $moraIndex = $totalSaldoCapital > 0 ? ($totalMoraVal / $totalSaldoCapital) * 100 : 0;
         
         // Ranked Clients (Saldos Actuales Operación)
@@ -129,17 +131,7 @@ class DashboardController extends Controller
             ->groupBy('cliente', 'identificacion')
             ->orderBy('valor_mora', 'desc')
             ->limit(10)
-            ->get()
-            ->map(function($debtor) use ($carteraQuery) {
-                // Fetch individual operations for this debtor that are in mora
-                $debtor->detalles = (clone $carteraQuery)
-                    ->where('identificacion', $debtor->identificacion)
-                    ->where('valor_mora', '>', 0)
-                    ->select('numero_radicado as operacion', 'valor_mora', 'dias_vencido')
-                    ->get();
-
-                return $debtor;
-            });
+            ->get();
 
         // Daily Disbursements Breakdown (Reporte de Desembolsos)
         $dailyDisbursements = (clone $carteraQuery)
@@ -187,6 +179,7 @@ class DashboardController extends Controller
             'saldo_capital' => (float)$totalSaldoCapital,
             'mora_index' => round($moraIndex, 4), 
             'total_mora' => (float)$totalMoraVal,
+            'total_vencido' => (float)$totalVencidoVal,
             'ciudades' => $sectoresCiudades,
             'actividad' => $actividadEconomica,
             'amortizacion' => $amortizacion,
@@ -322,12 +315,29 @@ class DashboardController extends Controller
             ->limit(30)
             ->get();
 
+        // Tasa de Colocación Ponderada
+        $totalValorParaPonderar = (clone $factoringOpQuery)->where('valor_desembolsado', '>', 0)->sum('valor_desembolsado');
+        $sumaTasaPorValor = (clone $factoringOpQuery)->where('valor_desembolsado', '>', 0)
+            ->selectRaw('SUM(tasa_descuento * valor_desembolsado) as total')
+            ->value('total');
+        
+        $tasaPonderada = $totalValorParaPonderar > 0 ? ($sumaTasaPorValor / $totalValorParaPonderar) : $avgTasaFactoring;
+
+        // Distribución de Tasas para Gráfico de Tortas
+        $tasaDistribution = (clone $factoringOpQuery)
+            ->select('tasa_descuento as tasa', \Illuminate\Support\Facades\DB::raw('SUM(valor_desembolsado) as total'))
+            ->groupBy('tasa_descuento')
+            ->orderBy('tasa', 'asc')
+            ->get();
+
         return [
             'op_count' => $factoringOpCount,
             'volumen_total' => (float)$totalFinanced,
             'valor_desembolsado' => (float)$totalDisbursed,
             'valor_reserva' => (float)$totalReserva,
             'avg_tasa' => $avgTasaFactoring ? round($avgTasaFactoring, 2) : 0,
+            'tasa_ponderada' => round($tasaPonderada, 2),
+            'tasa_distribution' => $tasaDistribution,
             'pagos_count' => $pagosCount,
             'total_collected' => (float)$totalCollected,
             'efficiency_score' => $efficiencyScore ? round($efficiencyScore, 1) : 0,

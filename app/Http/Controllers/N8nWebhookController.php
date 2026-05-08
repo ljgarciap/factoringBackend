@@ -37,6 +37,9 @@ class N8nWebhookController extends Controller
     
     public function handle(Request $request, $categoria)
     {
+        \Illuminate\Support\Facades\Log::info("Webhook n8n recibido para categoría: {$categoria}");
+        \Illuminate\Support\Facades\Log::info("Payload recibido (resumen): " . substr(json_encode($request->all()), 0, 500));
+
         $data = $request->input('data', []);
         $filename = $request->input('filename') ?? $request->query('filename');
         
@@ -98,6 +101,12 @@ class N8nWebhookController extends Controller
             }
         }
 
+        // Search for the ClientUpload ID using the filename
+        $clientUploadId = null;
+        if (!empty($filename)) {
+            $clientUploadId = \App\Models\ClientUpload::where('filename', $filename)->value('id');
+        }
+
         // 3. Apply Batch Consensus for Identifiers (Nombre -> NIT)
         $data = $this->applyConsensus($data, $categoria);
 
@@ -119,11 +128,17 @@ class N8nWebhookController extends Controller
 
                     // Remove only non-existent columns to avoid DB errors
                     $cleanedRow = collect($row)->except(['operacion', 'saldo_total'])->toArray();
+                    $cleanedRow['client_upload_id'] = $clientUploadId;
                     OperacionCartera::create($cleanedRow);
                 }
                 break;
             case 'op':
                 foreach ($data as $row) {
+                    // Filter out dummy/empty rows (like example row #84)
+                    if (empty($row['monto']) || (float)$row['monto'] <= 0) {
+                        continue;
+                    }
+
                     if (isset($row['cliente']) && isset($row['nit_cliente'])) {
                         $row['nit_cliente'] = \App\Services\ClientMasterService::masterClient($row['cliente'], $row['nit_cliente']);
                     }
@@ -132,6 +147,7 @@ class N8nWebhookController extends Controller
                     $valorAprobado = (float)($row['valor_aprobado'] ?? 0);
                     $tasa = (float)($row['tasa_descuento'] ?? 0);
                     $row['intereses_diarios'] = (($valorAprobado * $tasa) / 30) / 100;
+                    $row['client_upload_id'] = $clientUploadId;
 
                     OperacionFactoring::create($row);
                 }

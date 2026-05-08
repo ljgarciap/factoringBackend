@@ -129,6 +129,24 @@ class HistoryController extends Controller
         return response()->json(['message' => 'Registro actualizado', 'data' => $record]);
     }
 
+    public function deleteRecord($categoria, $id)
+    {
+        $modelClass = null;
+        switch ($categoria) {
+            case 'cartera': $modelClass = \App\Models\OperacionCartera::class; break;
+            case 'op': $modelClass = \App\Models\OperacionFactoring::class; break;
+            case 'pagos': $modelClass = \App\Models\PagoFactoring::class; break;
+            case 'opf': $modelClass = \App\Models\OperacionConfirming::class; break;
+            case 'compraventa': $modelClass = \App\Models\Compraventa::class; break;
+            default: return response()->json(['message' => 'Categoría no válida'], 400);
+        }
+
+        $record = $modelClass::findOrFail($id);
+        $record->delete();
+
+        return response()->json(['message' => 'Registro eliminado correctamente']);
+    }
+
     /**
      * @OA\Get(
      *     path="/api/history/{categoria}/export",
@@ -174,5 +192,26 @@ class HistoryController extends Controller
         $records = $query->get();
         $filename = "export_{$categoria}_" . date('Ymd_His') . ".xlsx";
         return Excel::download(new HistoryExport($records), $filename);
+    }
+
+    public function deleteByUpload($uploadId)
+    {
+        $tables = [
+            \App\Models\OperacionCartera::class,
+            \App\Models\OperacionFactoring::class,
+            \App\Models\PagoFactoring::class,
+            \App\Models\OperacionConfirming::class,
+            \App\Models\Compraventa::class
+        ];
+
+        $deletedTotal = 0;
+        foreach ($tables as $modelClass) {
+            $deletedTotal += $modelClass::where('client_upload_id', $uploadId)->delete();
+        }
+
+        return response()->json([
+            'message' => 'Limpieza masiva completada',
+            'deleted_records' => $deletedTotal
+        ]);
     }
 }

@@ -11,14 +11,16 @@ class UserController extends Controller
 {
     public function index()
     {
-        return response()->json(User::orderBy('name')->get());
+        return response()->json(User::with('documentType')->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'numero_documento' => 'required|string|unique:users',
+            'tipo_documento_id' => 'required|exists:document_types,id',
+            'email' => 'nullable|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
             'roles' => 'required|array',
             'roles.*' => 'string|in:superadmin,gerente,operativo,cliente'
@@ -26,6 +28,8 @@ class UserController extends Controller
 
         $user = User::create([
             'name' => $request->name,
+            'numero_documento' => $request->numero_documento,
+            'tipo_documento_id' => $request->tipo_documento_id,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'roles' => $request->roles,
@@ -38,8 +42,14 @@ class UserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => [
+            'numero_documento' => [
                 'required',
+                'string',
+                Rule::unique('users')->ignore($user->id),
+            ],
+            'tipo_documento_id' => 'required|exists:document_types,id',
+            'email' => [
+                'nullable',
                 'string',
                 'email',
                 'max:255',
@@ -52,6 +62,8 @@ class UserController extends Controller
 
         $data = [
             'name' => $request->name,
+            'numero_documento' => $request->numero_documento,
+            'tipo_documento_id' => $request->tipo_documento_id,
             'email' => $request->email,
             'roles' => $request->roles,
         ];

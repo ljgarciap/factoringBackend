@@ -38,7 +38,7 @@ class SettlementController extends Controller
                     }
                 }
 
-                // B. Try to find the matching OP for full settlement
+                // B. Try to find the matching OP for settlement
                 $facturaPago = trim($pago->factura_nro);
                 $nitPago = preg_replace('/[^0-9Kk]/', '', $pago->cc_o_nit);
 
@@ -57,6 +57,16 @@ class SettlementController extends Controller
                 ];
 
                 if ($op) {
+                    // Initialize saldo_pendiente if it is null
+                    if ($op->saldo_pendiente === null) {
+                        $op->saldo_pendiente = (float)$op->monto;
+                    }
+
+                    // Update Balance
+                    $op->saldo_pendiente -= (float)$pago->monto_pagado;
+                    $op->save();
+
+                    // Calculate Settlement Metrics
                     $interesesDiarios = $op->intereses_diarios;
                     if (!$interesesDiarios) {
                         $interesesDiarios = (( (float)$op->valor_aprobado * (float)$op->tasa_descuento ) / 30) / 100;
@@ -70,6 +80,7 @@ class SettlementController extends Controller
                     $updateData['intereses_pagados'] = $interesesPagados;
                     $updateData['devolucion_descuento'] = $devolucion;
                     $updateData['margen_reserva'] = $margen;
+                    $updateData['saldo_restante'] = $op->saldo_pendiente; // Update payment with current invoice balance
                     $updateData['estado_liquidacion'] = 'completado';
                     $processedCount++;
                 }

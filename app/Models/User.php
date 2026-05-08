@@ -21,7 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'roles',
+        'numero_documento',
+        'tipo_documento_id',
+        'roles'
     ];
 
     /**
@@ -46,5 +48,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'roles' => 'array',
         ];
+    }
+
+    public function documentType()
+    {
+        return $this->belongsTo(DocumentType::class, 'tipo_documento_id');
     }
 }

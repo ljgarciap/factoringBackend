@@ -38,10 +38,19 @@ Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class
         
         // Logs
         Route::get('/logs', [\App\Http\Controllers\SystemLogController::class, 'index'])
-            ->middleware(['auth:api', 'checkrole:gerente,superadmin']);
+            ->middleware(['auth:api', 'checkrole:gerente,operativo,superadmin']);
         
+        Route::delete('/logs/{id}', [\App\Http\Controllers\SystemLogController::class, 'destroy'])
+            ->middleware(['auth:api', 'checkrole:superadmin']);
+
         Route::post('/logs/{id}/retry', [\App\Http\Controllers\SystemLogController::class, 'retry'])
             ->middleware(['auth:api', 'checkrole:gerente,superadmin']);
+            
+        Route::delete('/history/{categoria}/{id}', [\App\Http\Controllers\HistoryController::class, 'deleteRecord'])
+            ->middleware(['auth:api', 'checkrole:superadmin']);
+
+        Route::delete('/history/by-upload/{uploadId}', [\App\Http\Controllers\HistoryController::class, 'deleteByUpload'])
+            ->middleware(['auth:api', 'checkrole:superadmin']);
 
         // Usuarios (Superadmin only)
         Route::apiResource('users', \App\Http\Controllers\UserController::class)
@@ -62,6 +71,8 @@ Route::get('/dashboard/stats', [\App\Http\Controllers\DashboardController::class
                 ->middleware('checkrole:operativo');
             Route::post('/{id}/approve', [\App\Http\Controllers\ClientUploadController::class, 'approveUpload'])
                 ->middleware('checkrole:gerente');
+            Route::delete('/{id}', [\App\Http\Controllers\ClientUploadController::class, 'destroy'])
+                ->middleware('checkrole:cliente,superadmin');
         });
 
 Route::get('/debug-passport', function (Illuminate\Http\Request $request) {
@@ -114,3 +125,4 @@ Route::prefix('planilla')->middleware('auth:api')->group(function () {
         Route::get('/resumen', [PlanillaController::class, 'getResumen']);
     });
 });
+Route::get('/document-types', function() { return \App\Models\DocumentType::all(); })->middleware(['auth:api']);

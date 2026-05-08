@@ -17,6 +17,11 @@ class ClientUploadController extends Controller
         // Roles Filtering
         if (in_array('cliente', $user->roles)) {
             $query->where('user_id', $user->id);
+        } else {
+            // Operativos/Gerentes/Superadmins: solo deben ver cargas de CLIENTES
+            $query->whereHas('user', function($q) {
+                $q->where('roles', 'like', '%"cliente"%');
+            });
         }
 
         // Search Filtering
@@ -141,8 +146,17 @@ class ClientUploadController extends Controller
     public function pendingCount(Request $request)
     {
         $user = $request->user();
-        $operativoCount = ClientUpload::where('status', 'pendiente')->count();
-        $gerenteCount = ClientUpload::where('status', 'validado')->count();
+        
+        $baseQuery = ClientUpload::whereHas('user', function($q) {
+            $q->where('roles', 'like', '%"cliente"%');
+        });
+
+        if (in_array('cliente', $user->roles)) {
+            $baseQuery->where('user_id', $user->id);
+        }
+
+        $operativoCount = (clone $baseQuery)->where('status', 'pendiente')->count();
+        $gerenteCount = (clone $baseQuery)->where('status', 'validado')->count();
 
         return response()->json([
             'operativo' => $operativoCount,
@@ -160,5 +174,30 @@ class ClientUploadController extends Controller
         }
 
         return Storage::download($upload->filename, $upload->original_name);
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $upload = ClientUpload::findOrFail($id);
+        $user = $request->user();
+
+        // Si es cliente, solo puede borrar si está pendiente y es suyo
+        if (in_array('cliente', $user->roles)) {
+            if ($upload->user_id !== $user->id) {
+                return response()->json(['message' => 'No tienes permiso para borrar este archivo.'], 403);
+            }
+            if ($upload->status !== 'pendiente') {
+                return response()->json(['message' => 'No puedes borrar un archivo que ya ha sido procesado o validado.'], 422);
+            }
+        }
+
+        // Borrar archivo físico
+        if (Storage::exists($upload->filename)) {
+            Storage::delete($upload->filename);
+        }
+
+        $upload->delete();
+
+        return response()->json(['message' => 'Archivo eliminado correctamente']);
     }
 }

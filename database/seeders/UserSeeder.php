@@ -13,52 +13,64 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        $cc = \App\Models\DocumentType::where('codigo', 'CC')->first()->id;
+
         // 1. Superadmin
         User::updateOrCreate(
-            ['email' => 'admin@test.com'],
+            ['numero_documento' => '1234'],
             [
                 'name' => 'Super Administrador',
-                'password' => Hash::make('admin123*'),
+                'email' => 'admin@test.com',
+                'password' => Hash::make('1234'),
+                'tipo_documento_id' => $cc,
                 'roles' => ['superadmin']
             ]
         );
 
         // 2. Cliente
         User::updateOrCreate(
-            ['email' => 'cliente@test.com'],
+            ['numero_documento' => '2345'],
             [
                 'name' => 'Cliente de Prueba',
-                'password' => Hash::make('cliente123*'),
+                'email' => 'cliente@test.com',
+                'password' => Hash::make('2345'),
+                'tipo_documento_id' => $cc,
                 'roles' => ['cliente']
             ]
         );
 
         // 3. Operativo
         User::updateOrCreate(
-            ['email' => 'operativo@test.com'],
+            ['numero_documento' => '3456'],
             [
                 'name' => 'Operativo de Factoring',
-                'password' => Hash::make('operativo123*'),
+                'email' => 'operativo@test.com',
+                'password' => Hash::make('3456'),
+                'tipo_documento_id' => $cc,
                 'roles' => ['operativo']
             ]
         );
 
         // 4. Gerente
         User::updateOrCreate(
-            ['email' => 'gerente@test.com'],
+            ['numero_documento' => '4567'],
             [
                 'name' => 'Gerencia Financiera',
-                'password' => Hash::make('gerente123*'),
+                'email' => 'gerente@test.com',
+                'password' => Hash::make('4567'),
+                'tipo_documento_id' => $cc,
                 'roles' => ['gerente']
             ]
         );
 
-        // 5. Multi-role User (Gerente + Operativo)
+        // 5. Multi-role User
         User::updateOrCreate(
-            ['email' => 'multi@test.com'],
+            ['numero_documento' => '5678'],
             [
                 'name' => 'Usuario Multiperfil',
-                'password' => Hash::make('multi123*'),
+                'email' => 'multi@test.com',
+                'password' => Hash::make('5678'),
+                'tipo_documento_id' => $cc,
                 'roles' => ['gerente', 'operativo']
             ]
         );

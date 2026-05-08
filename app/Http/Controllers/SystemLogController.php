@@ -102,4 +102,12 @@ class SystemLogController extends Controller
             return response()->json(['message' => 'Error en el reintento', 'error' => $e->getMessage()], 500);
         }
     }
+
+    public function destroy($id)
+    {
+        $log = \App\Models\SystemLog::findOrFail($id);
+        $log->delete();
+
+        return response()->json(['message' => 'Log de auditoría eliminado']);
+    }
 }

@@ -20,6 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        'http://localhost',
         'http://localhost:4200',
         'http://auto.proseguirliquidez.com',
         'http://173.201.39.182',
