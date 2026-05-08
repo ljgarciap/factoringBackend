@@ -10,16 +10,18 @@ class VerifyN8nToken
 {
     /**
      * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $request->bearerToken();
-        $expectedToken = config('services.n8n.token');
+        // Limpiamos espacios en blanco de ambos lados
+        $token = trim($request->bearerToken() ?? '');
+        $expectedToken = trim(env('N8N_API_TOKEN') ?: 'MiTokenSuperSecreto123');
 
-        if (!$token || $token !== $expectedToken) {
-            return response()->json(['message' => 'Unauthorized or invalid token'], 401);
+        if (empty($token) || $token !== $expectedToken) {
+            return response()->json([
+                'message' => 'Unauthorized or invalid token',
+                'hint' => 'Asegurate de que N8N_API_TOKEN coincida'
+            ], 401);
         }
 
         return $next($request);
